@@ -57,7 +57,7 @@ final class AIViewModel: ObservableObject {
     Satu balasan cukup 1-3 kalimat, jangan bertele-tele.
     """
 
-    private let gemini = GeminiService()
+    private let gemini = GeminiRouter()
     private let speechInput = SpeechInput()
     private let speechOutput = SpeechOutput()
     private let monitor = NWPathMonitor()
@@ -174,8 +174,9 @@ final class AIViewModel: ObservableObject {
                     systemInstruction: Self.systemPersona,
                     history: history
                 )
-                activeModel = gemini.modelName
-                return reply
+                activeModel = reply.fromCache ? "\(reply.modelName) (cached)" : reply.modelName
+                await gemini.logUsageSummary()
+                return reply.text
             } catch {
                 return await onDeviceReply()
             }
