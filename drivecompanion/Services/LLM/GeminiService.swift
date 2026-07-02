@@ -27,6 +27,8 @@ struct GeminiService {
     private let apiKey: String
     private let model: String
 
+    var modelName: String { model }
+
     init(model: String = "gemini-3.5-flash") {
         guard
             let key = Bundle.main.object(forInfoDictionaryKey: "GEMINI_API_KEY") as? String,
