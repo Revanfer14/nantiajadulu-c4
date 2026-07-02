@@ -7,29 +7,46 @@
 
 import Foundation
 
-enum GeminiError: Error {
+nonisolated enum GeminiError: Error, LocalizedError {
     case missingAPIKey
     case invalidResponse
     case requestFailed(Int)
+    case rateLimited(retryAfter: TimeInterval?)
+    case allModelsExhausted(summary: String)
+
+    var errorDescription: String? {
+        switch self {
+        case .missingAPIKey:
+            return "GEMINI_API_KEY not found. Check Secrets.xcconfig and the target's Info tab."
+        case .invalidResponse:
+            return "Gemini returned a response that could not be parsed."
+        case .requestFailed(let code):
+            return "Gemini request failed with HTTP \(code)."
+        case .rateLimited(let retryAfter):
+            if let retryAfter {
+                return "Gemini rate limited the request (retry after \(Int(retryAfter))s)."
+            }
+            return "Gemini rate limited the request."
+        case .allModelsExhausted(let summary):
+            return summary
+        }
+    }
 }
 
-enum ChatRole {
+nonisolated enum ChatRole {
     case user
     case model
 }
 
-struct ChatTurn {
+nonisolated struct ChatTurn {
     let role: ChatRole
     let text: String
 }
 
-struct GeminiService {
+nonisolated struct GeminiService {
     private let apiKey: String
-    private let model: String
 
-    var modelName: String { model }
-
-    init(model: String = "gemini-3.5-flash") {
+    init() {
         guard
             let key = Bundle.main.object(forInfoDictionaryKey: "GEMINI_API_KEY") as? String,
             !key.isEmpty,
@@ -38,10 +55,9 @@ struct GeminiService {
             fatalError("GEMINI_API_KEY not found. Check Secrets.xcconfig and the target's Info tab.")
         }
         self.apiKey = key
-        self.model = model
     }
 
-    func generateReply(systemInstruction: String, history: [ChatTurn]) async throws -> String {
+    func generateReply(model: String, systemInstruction: String, history: [ChatTurn]) async throws -> String {
         let url = URL(
             string: "https://generativelanguage.googleapis.com/v1beta/models/\(model):generateContent?key=\(apiKey)"
         )!
@@ -67,6 +83,12 @@ struct GeminiService {
 
         guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
             let code = (response as? HTTPURLResponse)?.statusCode ?? -1
+            if code == 429 {
+                let retryAfter = (response as? HTTPURLResponse)?
+                    .value(forHTTPHeaderField: "Retry-After")
+                    .flatMap(TimeInterval.init)
+                throw GeminiError.rateLimited(retryAfter: retryAfter)
+            }
             throw GeminiError.requestFailed(code)
         }
 
