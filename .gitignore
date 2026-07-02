@@ -17,6 +17,8 @@ xcuserdata/
 timeline.xctimeline
 playground.xcworkspace
 
+Secrets.xcconfig
+
 # Swift Package Manager
 #
 # Add this line if you want to avoid checking in source code from Swift Package Manager dependencies.
@@ -60,3 +62,4 @@ fastlane/report.xml
 fastlane/Preview.html
 fastlane/screenshots/**/*.png
 fastlane/test_output
+drivecompanion/Secrets.xcconfig
