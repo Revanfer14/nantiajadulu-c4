@@ -11,7 +11,7 @@ import SwiftUI
 struct drivecompanionApp: App {
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            DetectionView()
         }
     }
 }
