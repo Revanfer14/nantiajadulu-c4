@@ -22,45 +22,59 @@ final class DrowsinessDetector {
     private let perclosWindow: TimeInterval = 30
     private let earDrowsyThreshold: Double = 0.75
     private let perclosFadingThreshold: Double = 0.15
-
+    
     // CLOSDUR - for catching an actual microsleep as it happens
     private var eyeClosedSince: Date? = nil
     private let earClosedThreshold: Double = 0.4
     private let microsleepThreshold: TimeInterval = 2.0
-
+    
     // HEAD DROP
     private var headDroppedSince: Date? = nil
     private let headDropThreshold: TimeInterval = 1.0
     private let pitchDropThreshold: Double = 0.2
-
+    
     // YAWN
     private var jawOpenSince: Date? = nil
     private let jawOpenThreshold: Double = 0.8
-    private let yawnThreshold: TimeInterval = 4.0
-
+    private let yawnThreshold: TimeInterval = 3.0
+    
+    // ALERTNESS
+    private var eyeOpenSince: Date? = nil
+    private let alertThreshold: TimeInterval = 3.0
+    private var previousState: DrowsinessState = .alert
+    
     init() {
         seedEarHistory()
     }
-
+    
     // DETECTION
     func update(eyeOpenness: Double, jawOpen: Double, pitch: Double) -> DrowsinessSnapshot {
         let perclos = updatePerclos(with: eyeOpenness)
         let (closedDuration, isMicrosleep) = updateClosedDuration(with: eyeOpenness)
         let headDropDuration = updateHeadDropDuration(with: pitch)
         let jawOpenDuration = updateJawOpenDuration(with: jawOpen)
-
+        let alert = updateAlertness(with: eyeOpenness)
+        
         let headDropped = headDropDuration >= headDropThreshold
         let yawn = jawOpenDuration >= yawnThreshold
-
+        
         let state: DrowsinessState
-        if isMicrosleep {
+        if isMicrosleep { // lv 3
             state = .microsleep
-        } else if perclos > perclosFadingThreshold || (headDropped && perclos > perclosFadingThreshold * 0.5) || yawn {
+        } else if (headDropped && perclos > perclosFadingThreshold * 0.5) || yawn { // lv 1
             state = .drowsy
-        } else {
+        } else if perclos > perclosFadingThreshold && !alert { // lv 2
+            state = .drowsy
+        } else { // lv 0
             state = .alert
         }
-
+        
+        // recovery from drowsy and back to alert so that alarm is off
+        if previousState == .drowsy && state == .alert && alert {
+            seedEarHistory()
+        }
+        previousState = state
+        
         return DrowsinessSnapshot(perclos: perclos,
                                   closedDuration: closedDuration,
                                   isMicrosleep: isMicrosleep,
@@ -68,13 +82,13 @@ final class DrowsinessDetector {
                                   jawOpenDuration: jawOpenDuration,
                                   state: state)
     }
-
+    
     func reset() {
         eyeClosedSince = nil
         headDroppedSince = nil
         jawOpenSince = nil
     }
-
+    
     // dummy seed to prevent cold-start
     private func seedEarHistory() {
         let now = Date()
@@ -85,7 +99,7 @@ final class DrowsinessDetector {
             return (timestamp: now.addingTimeInterval(-secondsAgo), ear: dummyEar)
         }
     }
-
+    
     private func updatePerclos(with ear: Double) -> Double {
         let now = Date()
         earHistory.append((timestamp: now, ear: ear)) // append new sample
@@ -94,7 +108,7 @@ final class DrowsinessDetector {
         let closedCount = earHistory.filter { $0.ear < earDrowsyThreshold }.count
         return Double(closedCount) / Double(earHistory.count)
     }
-
+    
     private func updateClosedDuration(with ear: Double) -> (TimeInterval, Bool) {
         let now = Date()
         let duration: TimeInterval
@@ -107,7 +121,7 @@ final class DrowsinessDetector {
         }
         return (duration, duration >= microsleepThreshold)
     }
-
+    
     private func updateHeadDropDuration(with pitch: Double) -> TimeInterval {
         let now = Date()
         if pitch > pitchDropThreshold {
@@ -118,7 +132,7 @@ final class DrowsinessDetector {
             return 0
         }
     }
-
+    
     private func updateJawOpenDuration(with jawOpen: Double) -> TimeInterval {
         let now = Date()
         if jawOpen >= jawOpenThreshold {
@@ -127,6 +141,19 @@ final class DrowsinessDetector {
         } else {
             jawOpenSince = nil
             return 0
+        }
+    }
+    
+    private func updateAlertness(with eyeOpenness: Double) -> Bool {
+        let now = Date()
+        if eyeOpenness >= earDrowsyThreshold {
+            if eyeOpenSince == nil {
+                eyeOpenSince = now
+            }
+            return now.timeIntervalSince(eyeOpenSince!) >= alertThreshold
+        } else {
+            eyeOpenSince = nil
+            return false
         }
     }
 }

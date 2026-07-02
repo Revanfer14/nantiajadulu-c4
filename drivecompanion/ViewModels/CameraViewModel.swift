@@ -12,6 +12,7 @@ import Combine
 final class CameraViewModel: ObservableObject {
     private let faceTrackingService = FaceTrackingService()
     private let drowsinessDetector = DrowsinessDetector()
+    private let alarmService = AlarmService()
 
     var session: ARSession { faceTrackingService.session }
 
@@ -48,15 +49,28 @@ final class CameraViewModel: ObservableObject {
             self.closedDuration = snapshot.closedDuration
             self.isMicrosleep = snapshot.isMicrosleep
             self.drowsinessState = snapshot.state
+            self.updateAlarm(for: snapshot.state)
         }
     }
 
     private func handleFaceLost() {
         drowsinessDetector.reset()
+        alarmService.stop()
         DispatchQueue.main.async { [weak self] in
             self?.hasFace = false
             self?.closedDuration = 0
             self?.drowsinessState = .noFace
+        }
+    }
+    
+    private func updateAlarm(for state: DrowsinessState) {
+        switch state {
+        case .microsleep:
+            alarmService.play("microsleep_alert")
+        case .drowsy:
+            alarmService.play("drowsy_alert")
+        case .alert, .noFace:
+            alarmService.stop()
         }
     }
 }
