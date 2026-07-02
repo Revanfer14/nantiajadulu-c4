@@ -21,6 +21,12 @@ struct AIGeminiView: View {
                     .foregroundStyle(.secondary)
                     .animation(.easeInOut, value: viewModel.status.rawValue)
 
+                if !viewModel.activeModel.isEmpty {
+                    Text("Model: \(viewModel.activeModel)")
+                        .font(.footnote)
+                        .foregroundStyle(.tertiary)
+                }
+
                 Spacer()
 
                 Picker("Mode", selection: $viewModel.selectedMode) {

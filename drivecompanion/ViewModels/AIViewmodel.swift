@@ -44,6 +44,7 @@ final class AIViewModel: ObservableObject {
     @Published var status: CompanionStatus = .idle
     @Published var selectedMode: SessionMode = .occasionalProactive
     @Published var permissionDenied = false
+    @Published var activeModel: String = ""
 
     private static let systemPersona = """
     Kamu adalah teman ngobrol driver saat berkendara — santai, hangat, suportif.
@@ -104,6 +105,7 @@ final class AIViewModel: ObservableObject {
         }
 
         history = []
+        activeModel = ""
         isRunning = true
         status = .listening
 
@@ -122,6 +124,7 @@ final class AIViewModel: ObservableObject {
         speechInput.stop()
         speechOutput.stop()
         history = []
+        activeModel = ""
         isRunning = false
         status = .idle
 
@@ -167,10 +170,12 @@ final class AIViewModel: ObservableObject {
     private func respond() async -> String {
         if isOnline {
             do {
-                return try await gemini.generateReply(
+                let reply = try await gemini.generateReply(
                     systemInstruction: Self.systemPersona,
                     history: history
                 )
+                activeModel = gemini.modelName
+                return reply
             } catch {
                 return await onDeviceReply()
             }
@@ -187,8 +192,10 @@ final class AIViewModel: ObservableObject {
         let prompt = history.last?.text ?? ""
         do {
             let response = try await session.respond(to: prompt)
+            activeModel = "Foundation Models (on-device)"
             return response.content
         } catch {
+            activeModel = "Fallback"
             return "Maaf, aku lagi susah connect nih. Yuk fokus dulu ke jalan ya."
         }
     }
