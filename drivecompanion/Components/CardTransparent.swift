@@ -23,10 +23,11 @@ struct CardTransparent: View {
             Image(systemName: iconName)
                 .font(AppFont.iconSize)
                 .foregroundStyle(AppColor.primary)
+                .frame(width: 50, height: 50)
             
             VStack (alignment: .leading) {
                 Text(title)
-                    .font(AppFont.sectionTitle)
+                    .font(AppFont.cardTitle)
                     .fontWeight(.bold)
                     .foregroundStyle(AppColor.textPrimary)
                 Text(description)
