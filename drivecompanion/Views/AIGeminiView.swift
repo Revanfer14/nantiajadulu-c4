@@ -9,8 +9,14 @@ import SwiftUI
 
 @available(iOS 26.0, *)
 struct AIGeminiView: View {
-    @StateObject private var viewModel = AIViewModel()
+    private let drowsinessMonitor: DrowsinessMonitor
+    @StateObject private var viewModel: AIViewModel
 
+    init(drowsinessMonitor: DrowsinessMonitor) {
+        self.drowsinessMonitor = drowsinessMonitor
+        _viewModel = StateObject(wrappedValue: AIViewModel(drowsinessMonitor: drowsinessMonitor))
+    }
+    
     var body: some View {
         NavigationStack {
             VStack(spacing: 32) {
@@ -74,5 +80,5 @@ struct AIGeminiView: View {
 }
 
 #Preview {
-    AIGeminiView()
+    AIGeminiView(drowsinessMonitor: DrowsinessMonitor())
 }
