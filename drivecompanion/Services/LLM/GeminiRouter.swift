@@ -19,10 +19,10 @@ nonisolated struct GeminiModelConfig {
 nonisolated enum GeminiRouterConfig {
     static let fallbackChain: [GeminiModelConfig] = [
         GeminiModelConfig(name: "gemini-3.5-flash",      rpm: 5,  tpm: 250_000, rpd: 20),
+        GeminiModelConfig(name: "gemini-3.1-flash-lite", rpm: 15, tpm: 250_000, rpd: 500),
         GeminiModelConfig(name: "gemini-3-flash",        rpm: 5,  tpm: 250_000, rpd: 20),
         GeminiModelConfig(name: "gemini-2.5-flash",      rpm: 5,  tpm: 250_000, rpd: 20),
         GeminiModelConfig(name: "gemini-2.5-flash-lite", rpm: 10, tpm: 250_000, rpd: 20),
-        GeminiModelConfig(name: "gemini-3.1-flash-lite", rpm: 15, tpm: 250_000, rpd: 500),
         GeminiModelConfig(name: "gemma-4-26b",           rpm: 15, tpm: nil,     rpd: 1_500),
         GeminiModelConfig(name: "gemma-4-31b",           rpm: 15, tpm: nil,     rpd: 1_500),
     ]
