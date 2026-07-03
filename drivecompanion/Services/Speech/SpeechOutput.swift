@@ -21,6 +21,11 @@ final class SpeechOutput: NSObject {
         let matches = AVSpeechSynthesisVoice.speechVoices()
             .filter { $0.language == language }
             .sorted { $0.quality.rawValue > $1.quality.rawValue }
+        
+        if let picked = matches.first {
+                print("🔊 Voice terpilih: \(picked.name) — quality: \(picked.quality)")
+        }
+        
         return matches.first ?? AVSpeechSynthesisVoice(language: language)
     }
 
