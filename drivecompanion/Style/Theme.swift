@@ -22,12 +22,13 @@ enum AppColor {
 enum AppFont {
     static let screenTitle = Font.largeTitle
     static let sectionTitle = Font.title
+    static let cardTitle = Font.headline
     static let body = Font.body
     
-    static let iconSize = Font.system(size: 60)
+    static let iconSize = Font.system(size: 40)
 }
 
 #Preview {
     Text("Halo")
-        .font(AppFont.iconSize)
+        .font(AppFont.cardTitle)
 }
