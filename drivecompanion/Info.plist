@@ -4,5 +4,9 @@
 <dict>
 	<key>GEMINI_API_KEY</key>
 	<string>$(GEMINI_API_KEY)</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Jaga butuh akses mikrofon supaya kamu bisa ngobrol langsung dengan companion selama berkendara.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>Jaga menggunakan pengenalan suara untuk memahami obrolan kamu dan membalas secara natural.</string>
 </dict>
 </plist>
