@@ -66,7 +66,7 @@ struct AIGeminiView: View {
                 }
             }
             .padding()
-            .navigationTitle("Jaga Companion")
+            .navigationTitle("C4")
         }
     }
 }
