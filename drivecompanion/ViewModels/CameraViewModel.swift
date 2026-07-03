@@ -13,6 +13,7 @@ final class CameraViewModel: ObservableObject {
     private let faceTrackingService = FaceTrackingService()
     private let drowsinessDetector = DrowsinessDetector()
     private let alarmService = AlarmService()
+    private let drowsinessMonitor: DrowsinessMonitor
 
     var session: ARSession { faceTrackingService.session }
 
@@ -26,7 +27,8 @@ final class CameraViewModel: ObservableObject {
     @Published var isMicrosleep: Bool = false
     @Published var drowsinessState: DrowsinessState = .alert
 
-    init() {
+    init(monitor: DrowsinessMonitor) {
+        self.drowsinessMonitor = monitor
         faceTrackingService.onFaceUpdate = { [weak self] eyeOpenness, jawOpen, pitch in
             self?.handleFaceUpdate(eyeOpenness: eyeOpenness, jawOpen: jawOpen, pitch: pitch)
         }
@@ -50,6 +52,7 @@ final class CameraViewModel: ObservableObject {
             self.isMicrosleep = snapshot.isMicrosleep
             self.drowsinessState = snapshot.state
             self.updateAlarm(for: snapshot.state)
+            self.drowsinessMonitor.update(state: snapshot.state, perclos: snapshot.perclos, closedDuration: snapshot.closedDuration)
         }
     }
 
@@ -60,6 +63,7 @@ final class CameraViewModel: ObservableObject {
             self?.hasFace = false
             self?.closedDuration = 0
             self?.drowsinessState = .noFace
+            self?.drowsinessMonitor.update(state: .noFace, perclos: 0, closedDuration: 0)
         }
     }
     

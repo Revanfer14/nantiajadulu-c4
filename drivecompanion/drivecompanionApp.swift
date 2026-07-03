@@ -18,36 +18,10 @@ struct drivecompanionApp: App {
     
     var body: some Scene {
         WindowGroup {
-            NavigationStack {
-                Group {
-                    switch selectedTab {
-                    case .gemini:
-                        AIGeminiView()
-                    case .detection:
-                        DetectionView()
-                    }
-                }
-                .toolbar {
-                    ToolbarItemGroup(placement: .bottomBar) {
-                        Button(action: { selectedTab = .gemini }) {
-                            VStack {
-                                Image(systemName: "sparkles")
-                                Text("AI Gemini")
-                            }
-                        }
-                        .foregroundColor(selectedTab == .gemini ? .blue : .gray)
-
-                        Spacer()
-
-                        Button(action: { selectedTab = .detection }) {
-                            VStack {
-                                Image(systemName: "eye")
-                                Text("Detection")
-                            }
-                        }
-                        .foregroundColor(selectedTab == .detection ? .blue : .gray)
-                    }
-                }
+            if #available(iOS 26.0, *) {
+                RootView()
+            } else {
+                Text("Jaga membutuhkan iOS 26 atau lebih baru.")
             }
         }
     }
