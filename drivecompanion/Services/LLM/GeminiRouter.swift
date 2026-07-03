@@ -19,23 +19,28 @@ nonisolated struct GeminiModelConfig {
 nonisolated enum GeminiRouterConfig {
     static let fallbackChain: [GeminiModelConfig] = [
         GeminiModelConfig(name: "gemini-3.5-flash",      rpm: 5,  tpm: 250_000, rpd: 20),
+        GeminiModelConfig(name: "gemini-3.1-flash-lite", rpm: 15, tpm: 250_000, rpd: 500),
         GeminiModelConfig(name: "gemini-3-flash",        rpm: 5,  tpm: 250_000, rpd: 20),
         GeminiModelConfig(name: "gemini-2.5-flash",      rpm: 5,  tpm: 250_000, rpd: 20),
         GeminiModelConfig(name: "gemini-2.5-flash-lite", rpm: 10, tpm: 250_000, rpd: 20),
-        GeminiModelConfig(name: "gemini-3.1-flash-lite", rpm: 15, tpm: 250_000, rpd: 500),
         GeminiModelConfig(name: "gemma-4-26b",           rpm: 15, tpm: nil,     rpd: 1_500),
         GeminiModelConfig(name: "gemma-4-31b",           rpm: 15, tpm: nil,     rpd: 1_500),
     ]
 
     static let cacheTTL: TimeInterval = 3600
-    
-    static let rpmSafetyBuffer = 1
+
+    static let rpmSafetyBuffer = 0
 
     static let retriesPerModel = 2
 
     static let retryDelays: [TimeInterval] = [1.0, 2.0]
 
     static let persistentRateLimitCooldown: TimeInterval = 60
+}
+
+nonisolated enum GeminiStreamEvent {
+    case metadata(model: String, usedFallback: Bool)
+    case chunk(String)
 }
 
 nonisolated struct GeminiReply {
@@ -129,10 +134,6 @@ private nonisolated struct ModelUsageTracker {
     }
 }
 
-// The single entry point for all Gemini calls. Request flow:
-// cache check → model selection (RPD/cooldown) → RPM queue → API call with
-// retry → on persistent quota failure, next model in the chain.
-
 actor GeminiRouter {
     private let service = GeminiService()
     private var trackers: [String: ModelUsageTracker] = [:]
@@ -149,7 +150,6 @@ actor GeminiRouter {
             throw GeminiError.allModelsExhausted(summary: "Gemini fallback chain is empty — check GeminiRouterConfig")
         }
 
-        // Layer 1: response cache.
         let cacheKey = Self.cacheKey(systemInstruction: systemInstruction, history: history)
         if let entry = cache[cacheKey] {
             if Date().timeIntervalSince(entry.insertedAt) < GeminiRouterConfig.cacheTTL {
@@ -165,54 +165,180 @@ actor GeminiRouter {
             cache[cacheKey] = nil
         }
 
-        // Layer 3: walk the fallback chain; layers 2 and 4 apply per model.
-        for config in chain {
-            let model = config.name
+        while true {
+            var minRPMDelay: TimeInterval? = nil
 
-            if let reason = withTracker(model, { $0.dailyUnavailableReason(config: config) }) {
-                logger.info("Skipping \(model, privacy: .public): \(reason, privacy: .public)")
-                continue
-            }
+            for config in chain {
+                let model = config.name
 
-            var attempt = 0
-            attemptLoop: while true {
-                // Layer 2: RPM budget — queue until a slot opens, never fall
-                // back over a momentary burst.
-                try await waitForRPMSlot(config)
-
-                // The daily quota may have run out while this request was queued.
                 if let reason = withTracker(model, { $0.dailyUnavailableReason(config: config) }) {
-                    logger.info("Leaving \(model, privacy: .public) after queueing: \(reason, privacy: .public)")
-                    break attemptLoop
+                    logger.info("Skipping \(model, privacy: .public): \(reason, privacy: .public)")
+                    continue
                 }
 
-                withTracker(model) { $0.recordRequest() }
-                do {
-                    let text = try await service.generateReply(
-                        model: model,
-                        systemInstruction: systemInstruction,
-                        history: history
-                    )
-                    return cacheAndReturn(text: text, model: model, primary: primary, cacheKey: cacheKey)
-                } catch let error where Self.isTransient(error) {
-                    // Layer 4: retry the same model before declaring it exhausted.
-                    if attempt < GeminiRouterConfig.retriesPerModel {
-                        let delay = Self.retryDelay(for: error, attempt: attempt)
-                        logger.info("\(model, privacy: .public) rate limited/unavailable, retrying in \(delay, privacy: .public)s (attempt \(attempt + 1, privacy: .public)/\(GeminiRouterConfig.retriesPerModel, privacy: .public))")
-                        try await Task.sleep(for: .seconds(delay))
-                        attempt += 1
-                    } else {
-                        withTracker(model) { $0.startCooldown(GeminiRouterConfig.persistentRateLimitCooldown) }
-                        logger.warning("\(model, privacy: .public) still failing after \(GeminiRouterConfig.retriesPerModel, privacy: .public) retries — cooling down \(GeminiRouterConfig.persistentRateLimitCooldown, privacy: .public)s, moving to next model")
-                        break attemptLoop
+                let cap = max(1, config.rpm - GeminiRouterConfig.rpmSafetyBuffer)
+                let rpmDelay = withTracker(model) { $0.rpmDelay(cap: cap) }
+                if rpmDelay > 0 {
+                    logger.info("\(model, privacy: .public) at RPM cap — trying next model (\(String(format: "%.1f", rpmDelay), privacy: .public)s until slot)")
+                    minRPMDelay = min(minRPMDelay ?? rpmDelay, rpmDelay)
+                    continue
+                }
+
+                var attempt = 0
+                attemptLoop: while true {
+                    withTracker(model) { $0.recordRequest() }
+                    do {
+                        let text = try await service.generateReply(
+                            model: model,
+                            systemInstruction: systemInstruction,
+                            history: history
+                        )
+                        return cacheAndReturn(text: text, model: model, primary: primary, cacheKey: cacheKey)
+                    } catch let error where Self.isTransient(error) {
+                        if attempt < GeminiRouterConfig.retriesPerModel {
+                            let delay = Self.retryDelay(for: error, attempt: attempt)
+                            logger.info("\(model, privacy: .public) rate limited/unavailable, retrying in \(delay, privacy: .public)s (attempt \(attempt + 1, privacy: .public)/\(GeminiRouterConfig.retriesPerModel, privacy: .public))")
+                            try await Task.sleep(for: .seconds(delay))
+                            attempt += 1
+                        } else {
+                            withTracker(model) { $0.startCooldown(GeminiRouterConfig.persistentRateLimitCooldown) }
+                            logger.warning("\(model, privacy: .public) still failing after \(GeminiRouterConfig.retriesPerModel, privacy: .public) retries — cooling down \(GeminiRouterConfig.persistentRateLimitCooldown, privacy: .public)s, moving to next model")
+                            break attemptLoop
+                        }
                     }
                 }
             }
+
+            if let delay = minRPMDelay {
+                logger.info("All available models at RPM cap — waiting \(String(format: "%.1f", delay), privacy: .public)s for a slot to open")
+                try await Task.sleep(for: .seconds(delay))
+            } else {
+                let summary = exhaustionSummary()
+                logger.error("\(summary, privacy: .public)")
+                throw GeminiError.allModelsExhausted(summary: summary)
+            }
+        }
+    }
+
+    func streamReply(systemInstruction: String, history: [ChatTurn]) -> AsyncThrowingStream<GeminiStreamEvent, Error> {
+        AsyncThrowingStream { continuation in
+            let task = Task {
+                do {
+                    try await self.runStreamReply(
+                        systemInstruction: systemInstruction,
+                        history: history,
+                        continuation: continuation
+                    )
+                } catch {
+                    continuation.finish(throwing: error)
+                }
+            }
+            continuation.onTermination = { _ in task.cancel() }
+        }
+    }
+
+    private func runStreamReply(
+        systemInstruction: String,
+        history: [ChatTurn],
+        continuation: AsyncThrowingStream<GeminiStreamEvent, Error>.Continuation
+    ) async throws {
+        let chain = GeminiRouterConfig.fallbackChain
+        guard let primary = chain.first else {
+            throw GeminiError.allModelsExhausted(summary: "Gemini fallback chain is empty — check GeminiRouterConfig")
         }
 
-        let summary = exhaustionSummary()
-        logger.error("\(summary, privacy: .public)")
-        throw GeminiError.allModelsExhausted(summary: summary)
+        let cacheKey = Self.cacheKey(systemInstruction: systemInstruction, history: history)
+        if let entry = cache[cacheKey], Date().timeIntervalSince(entry.insertedAt) < GeminiRouterConfig.cacheTTL {
+            cacheHitCount += 1
+            logger.info("Cache hit — reusing \(entry.reply.modelName, privacy: .public) response, no API call")
+            continuation.yield(.metadata(model: entry.reply.modelName, usedFallback: entry.reply.usedFallback))
+            continuation.yield(.chunk(entry.reply.text))
+            continuation.finish()
+            return
+        }
+        cache[cacheKey] = nil
+
+        while true {
+            var minRPMDelay: TimeInterval? = nil
+
+            for config in chain {
+                let model = config.name
+
+                if let reason = withTracker(model, { $0.dailyUnavailableReason(config: config) }) {
+                    logger.info("Skipping \(model, privacy: .public): \(reason, privacy: .public)")
+                    continue
+                }
+
+                let cap = max(1, config.rpm - GeminiRouterConfig.rpmSafetyBuffer)
+                let rpmDelay = withTracker(model) { $0.rpmDelay(cap: cap) }
+                if rpmDelay > 0 {
+                    logger.info("\(model, privacy: .public) at RPM cap — trying next model (\(String(format: "%.1f", rpmDelay), privacy: .public)s until slot)")
+                    minRPMDelay = min(minRPMDelay ?? rpmDelay, rpmDelay)
+                    continue
+                }
+
+                var attempt = 0
+                var committed = false
+
+                attemptLoop: while true {
+                    withTracker(model) { $0.recordRequest() }
+                    let chunkStream = service.streamReply(model: model, systemInstruction: systemInstruction, history: history)
+                    var fullText = ""
+                    var hasChunk = false
+
+                    do {
+                        for try await chunk in chunkStream {
+                            if !hasChunk {
+                                let usedFallback = model != primary.name
+                                if usedFallback {
+                                    logger.warning("Fallback model \(model, privacy: .public) streaming instead of primary \(primary.name, privacy: .public)")
+                                }
+                                continuation.yield(.metadata(model: model, usedFallback: usedFallback))
+                                committed = true
+                            }
+                            hasChunk = true
+                            fullText += chunk
+                            continuation.yield(.chunk(chunk))
+                        }
+
+                        if hasChunk {
+                            let usedFallback = model != primary.name
+                            let reply = GeminiReply(text: fullText, modelName: model, usedFallback: usedFallback, fromCache: false)
+                            pruneExpiredCacheEntries()
+                            cache[cacheKey] = GeminiCacheEntry(reply: reply, insertedAt: Date())
+                        }
+                        continuation.finish()
+                        return
+
+                    } catch let error {
+                        if committed {
+                            continuation.finish()
+                            return
+                        }
+                        guard Self.isTransient(error) else { throw error }
+                        if attempt < GeminiRouterConfig.retriesPerModel {
+                            let delay = Self.retryDelay(for: error, attempt: attempt)
+                            logger.info("\(model, privacy: .public) rate limited/unavailable, retrying in \(delay, privacy: .public)s (attempt \(attempt + 1, privacy: .public)/\(GeminiRouterConfig.retriesPerModel, privacy: .public))")
+                            try await Task.sleep(for: .seconds(delay))
+                            attempt += 1
+                        } else {
+                            withTracker(model) { $0.startCooldown(GeminiRouterConfig.persistentRateLimitCooldown) }
+                            logger.warning("\(model, privacy: .public) still failing after \(GeminiRouterConfig.retriesPerModel, privacy: .public) retries — cooling down \(GeminiRouterConfig.persistentRateLimitCooldown, privacy: .public)s, moving to next model")
+                            break attemptLoop
+                        }
+                    }
+                }
+            }
+
+            if let delay = minRPMDelay {
+                logger.info("All available models at RPM cap — waiting \(String(format: "%.1f", delay), privacy: .public)s for a slot to open")
+                try await Task.sleep(for: .seconds(delay))
+            } else {
+                let summary = exhaustionSummary()
+                logger.error("\(summary, privacy: .public)")
+                throw GeminiError.allModelsExhausted(summary: summary)
+            }
+        }
     }
 
     func clearCache() {
@@ -234,18 +360,6 @@ actor GeminiRouter {
             lines.append("  \(model.name): RPM \(model.rpmUsed)/\(model.rpmCap), RPD \(model.rpdUsed)/\(model.rpdLimit)\(model.coolingDown ? " [cooldown]" : "")")
         }
         logger.info("\(lines.joined(separator: "\n"), privacy: .public)")
-    }
-
-    // MARK: Internals
-
-    private func waitForRPMSlot(_ config: GeminiModelConfig) async throws {
-        let cap = max(1, config.rpm - GeminiRouterConfig.rpmSafetyBuffer)
-        while true {
-            let delay = withTracker(config.name) { $0.rpmDelay(cap: cap) }
-            guard delay > 0 else { return }
-            logger.info("\(config.name, privacy: .public) at RPM cap \(cap, privacy: .public)/min — request queued for \(String(format: "%.1f", delay), privacy: .public)s")
-            try await Task.sleep(for: .seconds(delay))
-        }
     }
 
     private func cacheAndReturn(text: String, model: String, primary: GeminiModelConfig, cacheKey: String) -> GeminiReply {

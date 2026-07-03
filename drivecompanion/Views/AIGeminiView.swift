@@ -21,11 +21,6 @@ struct AIGeminiView: View {
                     .foregroundStyle(.secondary)
                     .animation(.easeInOut, value: viewModel.status.rawValue)
 
-                if !viewModel.activeModel.isEmpty {
-                    Text("Model: \(viewModel.activeModel)")
-                        .font(.footnote)
-                        .foregroundStyle(.tertiary)
-                }
 
                 Spacer()
 
@@ -67,6 +62,13 @@ struct AIGeminiView: View {
             }
             .padding()
             .navigationTitle("C4")
+            .toolbar {  
+                ToolbarItem(placement: .topBarTrailing) {
+                    Text("Model: \(viewModel.activeModel.isEmpty ? "-" : viewModel.activeModel)")
+                        .font(.footnote)
+                        .foregroundStyle(.tertiary)
+                }
+            }
         }
     }
 }
