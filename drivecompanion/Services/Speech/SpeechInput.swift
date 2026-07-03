@@ -98,9 +98,11 @@ final class SpeechInput {
         recognitionTask = nil
     }
 
+    private static let silenceTimeout: TimeInterval = 0.8
+
     private func resetSilenceTimer() {
         silenceTimer?.invalidate()
-        silenceTimer = Timer.scheduledTimer(withTimeInterval: 1.5, repeats: false) { [weak self] _ in
+        silenceTimer = Timer.scheduledTimer(withTimeInterval: Self.silenceTimeout, repeats: false) { [weak self] _ in
             guard let self else { return }
             let transcript = self.latestTranscript.trimmingCharacters(in: .whitespacesAndNewlines)
             guard !transcript.isEmpty else { return }
