@@ -41,7 +41,7 @@ struct drivecompanionApp: App {
 
                         Button(action: { selectedTab = .detection }) {
                             VStack {
-                                Image(systemName: "eye.viewfinder")
+                                Image(systemName: "eye")
                                 Text("Detection")
                             }
                         }
