@@ -9,14 +9,6 @@ import CryptoKit
 import Foundation
 import os
 
-// MARK: - Configuration
-// Everything tunable lives here: cache TTL, retry policy, and the fallback
-// chain with per-model limits (from the AI Studio dashboard, project
-// "Drive Companion C4"). RPM uses a rolling 60s window and is capped at
-// (rpm − rpmSafetyBuffer). RPD resets at midnight Pacific time (when Gemini
-// resets daily quotas). TPM is listed for reference only and never enforced
-// (nil = unlimited, per the Gemma models).
-
 nonisolated struct GeminiModelConfig {
     let name: String
     let rpm: Int
@@ -25,7 +17,6 @@ nonisolated struct GeminiModelConfig {
 }
 
 nonisolated enum GeminiRouterConfig {
-    /// Ordered fallback chain. First entry is the primary model.
     static let fallbackChain: [GeminiModelConfig] = [
         GeminiModelConfig(name: "gemini-3.5-flash",      rpm: 5,  tpm: 250_000, rpd: 20),
         GeminiModelConfig(name: "gemini-3-flash",        rpm: 5,  tpm: 250_000, rpd: 20),
@@ -36,23 +27,16 @@ nonisolated enum GeminiRouterConfig {
         GeminiModelConfig(name: "gemma-4-31b",           rpm: 15, tpm: nil,     rpd: 1_500),
     ]
 
-    /// How long a cached response stays valid.
     static let cacheTTL: TimeInterval = 3600
-
-    /// RPM is enforced at (rpm − buffer) to stay under the real limit.
+    
     static let rpmSafetyBuffer = 1
 
-    /// Quick retries on the same model before falling back to the next one.
     static let retriesPerModel = 2
 
-    /// Backoff before each retry (used when the API sends no Retry-After header).
     static let retryDelays: [TimeInterval] = [1.0, 2.0]
 
-    /// After retries still hit the rate limit, skip the model for this long.
     static let persistentRateLimitCooldown: TimeInterval = 60
 }
-
-// MARK: - Reply metadata
 
 nonisolated struct GeminiReply {
     let text: String
@@ -60,8 +44,6 @@ nonisolated struct GeminiReply {
     let usedFallback: Bool
     let fromCache: Bool
 }
-
-// MARK: - Usage visibility
 
 nonisolated struct GeminiUsageSnapshot {
     nonisolated struct ModelUsage {
@@ -78,14 +60,10 @@ nonisolated struct GeminiUsageSnapshot {
     let cacheEntries: Int
 }
 
-// MARK: - Response cache entry
-
 private nonisolated struct GeminiCacheEntry {
     let reply: GeminiReply
     let insertedAt: Date
 }
-
-// MARK: - Per-model usage tracking
 
 private nonisolated struct ModelUsageTracker {
     private var requestTimestamps: [Date] = []
@@ -93,16 +71,12 @@ private nonisolated struct ModelUsageTracker {
     private var dailyKey = DateComponents()
     private var cooldownUntil: Date?
 
-    // Gemini resets daily quotas at midnight Pacific time.
     private static let pacificCalendar: Calendar = {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = TimeZone(identifier: "America/Los_Angeles")!
         return calendar
     }()
 
-    /// nil when the model can serve requests today; otherwise why it can't.
-    /// RPM is deliberately not considered here — RPM exhaustion queues
-    /// (see `rpmDelay`), it never disqualifies a model.
     mutating func dailyUnavailableReason(config: GeminiModelConfig, now: Date = Date()) -> String? {
         refresh(now: now)
         if let until = cooldownUntil {
@@ -117,8 +91,6 @@ private nonisolated struct ModelUsageTracker {
         return nil
     }
 
-    /// 0 when a request may fire now; otherwise how long until the rolling
-    /// 60s window frees a slot.
     mutating func rpmDelay(cap: Int, now: Date = Date()) -> TimeInterval {
         refresh(now: now)
         guard requestTimestamps.count >= cap, let oldest = requestTimestamps.first else { return 0 }
@@ -157,7 +129,6 @@ private nonisolated struct ModelUsageTracker {
     }
 }
 
-// MARK: - Router
 // The single entry point for all Gemini calls. Request flow:
 // cache check → model selection (RPD/cooldown) → RPM queue → API call with
 // retry → on persistent quota failure, next model in the chain.
@@ -236,8 +207,6 @@ actor GeminiRouter {
                         break attemptLoop
                     }
                 }
-                // Non-transient errors (no network, bad key, parse failure)
-                // propagate to the caller: other models won't fix those.
             }
         }
 
@@ -246,14 +215,11 @@ actor GeminiRouter {
         throw GeminiError.allModelsExhausted(summary: summary)
     }
 
-    /// Drops every cached response. Cache is in-memory only, so it also
-    /// resets on app relaunch.
     func clearCache() {
         cache.removeAll()
         logger.info("Response cache cleared")
     }
 
-    /// Current per-model usage vs configured limits, plus cache stats.
     func usageSnapshot() -> GeminiUsageSnapshot {
         let models = GeminiRouterConfig.fallbackChain.map { config in
             withTracker(config.name) { $0.usage(config: config) }
@@ -261,7 +227,6 @@ actor GeminiRouter {
         return GeminiUsageSnapshot(models: models, cacheHits: cacheHitCount, cacheEntries: cache.count)
     }
 
-    /// Logs a one-shot usage summary — handy while testing.
     func logUsageSummary() {
         let snapshot = usageSnapshot()
         var lines = ["Gemini usage — cache: \(snapshot.cacheHits) hits, \(snapshot.cacheEntries) entries"]
@@ -312,10 +277,6 @@ actor GeminiRouter {
         return result
     }
 
-    /// Length-prefixed SHA-256 over the system instruction and every turn,
-    /// so no delimiter collision can alias two different conversations.
-    /// The model is not part of the key: callers don't pick models, the
-    /// chain does, and the serving model travels in the reply metadata.
     private static func cacheKey(systemInstruction: String, history: [ChatTurn]) -> String {
         var hasher = SHA256()
         func absorb(_ string: String) {
