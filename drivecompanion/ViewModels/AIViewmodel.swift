@@ -67,6 +67,7 @@ final class AIViewModel: ObservableObject {
 
     private let historyLimit = 20
     private let proactiveCue = "(Waktunya kamu yang mulai ngobrol duluan. Pilih topik baru, jangan ulangi topik sebelumnya.)"
+    private let sentenceEnders: Set<Character> = [".", "!", "?"]
 
     init() {
         let queue = DispatchQueue(label: "jaga.connectivity-monitor")
@@ -138,9 +139,6 @@ final class AIViewModel: ObservableObject {
 
         let reply = await respond()
         appendHistory(ChatTurn(role: .model, text: reply))
-
-        status = .speaking
-        speechOutput.speak(reply)
     }
 
     private func armProactiveTimer() {
@@ -162,26 +160,59 @@ final class AIViewModel: ObservableObject {
 
         let reply = await respond()
         appendHistory(ChatTurn(role: .model, text: reply))
-
-        status = .speaking
-        speechOutput.speak(reply)
     }
 
     private func respond() async -> String {
         if isOnline {
             do {
-                let reply = try await gemini.generateReply(
-                    systemInstruction: Self.systemPersona,
-                    history: history
-                )
-                activeModel = reply.fromCache ? "\(reply.modelName) (cached)" : reply.modelName
-                await gemini.logUsageSummary()
-                return reply.text
+                return try await streamAndSpeak()
             } catch {
                 return await onDeviceReply()
             }
         } else {
             return await onDeviceReply()
+        }
+    }
+
+    private func streamAndSpeak() async throws -> String {
+        let stream = await gemini.streamReply(systemInstruction: Self.systemPersona, history: history)
+        var fullText = ""
+        var sentenceBuffer = ""
+        var firstChunk = true
+
+        for try await event in stream {
+            switch event {
+            case .metadata(let model, _):
+                activeModel = model
+            case .chunk(let text):
+                if firstChunk {
+                    status = .speaking
+                    firstChunk = false
+                }
+                fullText += text
+                sentenceBuffer += text
+                flushSentences(&sentenceBuffer)
+            }
+        }
+
+        let remaining = sentenceBuffer.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !remaining.isEmpty {
+            speechOutput.enqueue(remaining)
+        }
+        speechOutput.endStream()
+
+        await gemini.logUsageSummary()
+        return fullText
+    }
+
+    private func flushSentences(_ buffer: inout String) {
+        while let idx = buffer.firstIndex(where: { sentenceEnders.contains($0) }) {
+            let end = buffer.index(after: idx)
+            let sentence = String(buffer[..<end]).trimmingCharacters(in: .whitespaces)
+            if !sentence.isEmpty {
+                speechOutput.enqueue(sentence)
+            }
+            buffer = String(buffer[end...])
         }
     }
 
@@ -194,10 +225,16 @@ final class AIViewModel: ObservableObject {
         do {
             let response = try await session.respond(to: prompt)
             activeModel = "Foundation Models (on-device)"
-            return response.content
+            let text = response.content
+            status = .speaking
+            speechOutput.speak(text)
+            return text
         } catch {
             activeModel = "Fallback"
-            return "Maaf, aku lagi susah connect nih. Yuk fokus dulu ke jalan ya."
+            let text = "Maaf, aku lagi susah connect nih. Yuk fokus dulu ke jalan ya."
+            status = .speaking
+            speechOutput.speak(text)
+            return text
         }
     }
 
