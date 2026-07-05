@@ -10,7 +10,7 @@ import SwiftUI
 // MARK: - App Color
 enum AppColor {
     // MARK: Background
-    static let primary = Color("Primary")
+    static let primaryColor = Color("AppPrimary")
     static let background = Color("Background")
     
     // MARK: Text Color
@@ -20,8 +20,8 @@ enum AppColor {
 
 // MARK: - App Font
 enum AppFont {
-    static let screenTitle = Font.largeTitle
-    static let sectionTitle = Font.title
+    static let screenTitle = Font.title.bold()
+    static let sectionTitle = Font.title2
     static let cardTitle = Font.headline
     static let body = Font.body
     
@@ -30,5 +30,5 @@ enum AppFont {
 
 #Preview {
     Text("Halo")
-        .font(AppFont.cardTitle)
+        .font(AppFont.sectionTitle)
 }
