@@ -6,8 +6,37 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		E8FD662D2FFA805000416E38 /* drivercompanion Watch App.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = E8FD66232FFA805000416E38 /* drivercompanion Watch App.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		E8FD662B2FFA805000416E38 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 76ED18382FF4D33F007C646C /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = E8FD66222FFA805000416E38;
+			remoteInfo = "drivercompanion Watch App";
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		E8FD66312FFA805000416E38 /* Embed Watch Content */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "$(CONTENTS_FOLDER_PATH)/Watch";
+			dstSubfolderSpec = 16;
+			files = (
+				E8FD662D2FFA805000416E38 /* drivercompanion Watch App.app in Embed Watch Content */,
+			);
+			name = "Embed Watch Content";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
 /* Begin PBXFileReference section */
 		76ED18402FF4D33F007C646C /* drivecompanion.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = drivecompanion.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		E8FD66232FFA805000416E38 /* drivercompanion Watch App.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "drivercompanion Watch App.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -29,10 +58,22 @@
 			path = drivecompanion;
 			sourceTree = "<group>";
 		};
+		E8FD66242FFA805000416E38 /* drivercompanion Watch App */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = "drivercompanion Watch App";
+			sourceTree = "<group>";
+		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
 		76ED183D2FF4D33F007C646C /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		E8FD66202FFA805000416E38 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -46,6 +87,7 @@
 			isa = PBXGroup;
 			children = (
 				76ED18422FF4D33F007C646C /* drivecompanion */,
+				E8FD66242FFA805000416E38 /* drivercompanion Watch App */,
 				76ED18412FF4D33F007C646C /* Products */,
 			);
 			sourceTree = "<group>";
@@ -54,6 +96,7 @@
 			isa = PBXGroup;
 			children = (
 				76ED18402FF4D33F007C646C /* drivecompanion.app */,
+				E8FD66232FFA805000416E38 /* drivercompanion Watch App.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -68,10 +111,12 @@
 				76ED183C2FF4D33F007C646C /* Sources */,
 				76ED183D2FF4D33F007C646C /* Frameworks */,
 				76ED183E2FF4D33F007C646C /* Resources */,
+				E8FD66312FFA805000416E38 /* Embed Watch Content */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				E8FD662C2FFA805000416E38 /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				76ED18422FF4D33F007C646C /* drivecompanion */,
@@ -81,6 +126,28 @@
 			);
 			productName = drivecompanion;
 			productReference = 76ED18402FF4D33F007C646C /* drivecompanion.app */;
+			productType = "com.apple.product-type.application";
+		};
+		E8FD66222FFA805000416E38 /* drivercompanion Watch App */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = E8FD662E2FFA805000416E38 /* Build configuration list for PBXNativeTarget "drivercompanion Watch App" */;
+			buildPhases = (
+				E8FD661F2FFA805000416E38 /* Sources */,
+				E8FD66202FFA805000416E38 /* Frameworks */,
+				E8FD66212FFA805000416E38 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				E8FD66242FFA805000416E38 /* drivercompanion Watch App */,
+			);
+			name = "drivercompanion Watch App";
+			packageProductDependencies = (
+			);
+			productName = "drivercompanion Watch App";
+			productReference = E8FD66232FFA805000416E38 /* drivercompanion Watch App.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
@@ -94,6 +161,9 @@
 				LastUpgradeCheck = 2660;
 				TargetAttributes = {
 					76ED183F2FF4D33F007C646C = {
+						CreatedOnToolsVersion = 26.6;
+					};
+					E8FD66222FFA805000416E38 = {
 						CreatedOnToolsVersion = 26.6;
 					};
 				};
@@ -113,12 +183,20 @@
 			projectRoot = "";
 			targets = (
 				76ED183F2FF4D33F007C646C /* drivecompanion */,
+				E8FD66222FFA805000416E38 /* drivercompanion Watch App */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
 		76ED183E2FF4D33F007C646C /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		E8FD66212FFA805000416E38 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -135,7 +213,22 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		E8FD661F2FFA805000416E38 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		E8FD662C2FFA805000416E38 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = E8FD66222FFA805000416E38 /* drivercompanion Watch App */;
+			targetProxy = E8FD662B2FFA805000416E38 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		76ED18492FF4D33F007C646C /* Debug */ = {
@@ -337,6 +430,72 @@
 			};
 			name = Release;
 		};
+		E8FD662F2FFA805000416E38 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = drivercompanion;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
+				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = com.nantiajadulu.drivecompanion;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.nantiajadulu.drivecompanion.watchkitapp;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				WATCHOS_DEPLOYMENT_TARGET = 26.5;
+			};
+			name = Debug;
+		};
+		E8FD66302FFA805000416E38 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = drivercompanion;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
+				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = com.nantiajadulu.drivecompanion;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.nantiajadulu.drivecompanion.watchkitapp;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				WATCHOS_DEPLOYMENT_TARGET = 26.5;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -354,6 +513,15 @@
 			buildConfigurations = (
 				76ED184C2FF4D33F007C646C /* Debug */,
 				76ED184D2FF4D33F007C646C /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		E8FD662E2FFA805000416E38 /* Build configuration list for PBXNativeTarget "drivercompanion Watch App" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				E8FD662F2FFA805000416E38 /* Debug */,
+				E8FD66302FFA805000416E38 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
