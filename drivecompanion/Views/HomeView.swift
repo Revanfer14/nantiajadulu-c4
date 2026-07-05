@@ -28,6 +28,11 @@ struct HomeView: View {
                 PrimaryButton("Lanjutkan") {
                     isDrivingActive = true
                 }
+                
+                // delete this later
+                PrimaryButton("Test Watch") {
+                    WatchConnectivityManager.shared.startDrivingSession()
+                }
             }
             .padding(.top, 50)
             .padding(.horizontal, 20)
