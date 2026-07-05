@@ -1,8 +1,8 @@
 //
 //  ContentView.swift
-//  drivecompanion
+//  drivercompanion Watch App
 //
-//  Created by Revan Ferdinand on 01/07/26.
+//  Created by Michelle Nathania on 05/07/26.
 //
 
 import SwiftUI
