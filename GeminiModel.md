@@ -6,25 +6,16 @@ Documentation for DriveCompanion's **AI companion layer** — the voice-driven "
 
 The companion is a presence, not a dashboard: casual spoken conversation, occasional check-ins, warm tone. **There is no chat UI.** Input comes from the driver's voice (microphone → speech-to-text), output is spoken aloud (text-to-speech). The only manual UI control is Start/Stop.
 
-## Architecture — Four-Layer Routing
+## Architecture
 
 ```
 Driver speech (mic) ──▶ SpeechInput (id-ID, silence-timer 0.8s)
       │
       ▼
-Safety alert?  ──yes──▶ Scripted response (deterministic, Bahasa Indonesia)
-      │no
-      ▼
-   Online?    ──yes──▶ GeminiRouter ──▶ gemini-3.5-flash (primary)
-      │no                    │              │ quota/rate-limit?
-      │                      │              ▼
-      │                      └──────▶ next model in chain (6 fallbacks)
-      │                                     │ all exhausted?
-      ▼                                     │
-Foundation Models (on-device) ◀────────────┘ (online failure fallback)
-      │ fails?
-      ▼
-Static fallback line ("Maaf, aku lagi susah connect nih.")
+   Online?    ──yes──▶ GeminiService.streamReply (gemini-3.1-flash-lite)
+      │no                    │ any error (one retry on pre-chunk 429)
+      ▼                      ▼
+Foundation Models (on-device) ──▶ static fallback line ("Maaf, aku lagi susah connect nih.")
       │
       ▼
 SpeechOutput (AVSpeechSynthesizer, id-ID voice)
@@ -39,76 +30,32 @@ SpeechOutput (AVSpeechSynthesizer, id-ID voice)
 - Pro is tuned for heavy reasoning (math, coding, multi-step analysis) and has higher latency — not built for fast back-and-forth chat.
 - Flash is designed for interactive chat/agent use cases: lower latency, and its casual-conversation quality is more than sufficient here. Pro's extra reasoning headroom isn't the bottleneck for this use case.
 
-**Primary model: `gemini-3.5-flash`.** When it is rate-limited or quota-exhausted, `GeminiRouter` automatically steps through a chain of six fallback models (see below) rather than failing immediately.
+**Single model: `gemini-3.1-flash-lite`.** Hardcoded as `GeminiService.model` — the only place the model name appears in the codebase. Chosen for its 500 RPD / 15 RPM free-tier headroom; casual-conversation quality is sufficient. Any Gemini failure falls back to on-device FoundationModels with no intermediate routing step.
 
 ### Considered and deferred
 - **Gemini Live API** (real-time speech-to-speech, native interruption/turn-taking handling) could eventually replace the STT→LLM→TTS pipeline below with one streaming session. Flagged as a **post-MVP exploration** — Bahasa Indonesia quality on Live API hasn't been verified, and it adds WebSocket/streaming complexity not needed for the group-project demo. The current spec (separate STT/LLM/TTS steps) is the near-term path.
 - **Apple Foundation Models as primary brain** — ruled out because iOS 26/27 have no official Bahasa Indonesia support yet. Kept as the **offline fallback** instead; revisit as fine-tuning support matures.
 - **Firebase AI Logic** (unified `LanguageModel` protocol) — requires iOS 27, which was still in developer beta as of writing (stable expected ~mid-September 2026). Too risky to depend on for a group project deadline. Revisit once iOS 27 ships stable.
 
-## GeminiRouter — Fallback & Rate Limiting
+## GeminiService — Single Model, Direct Call
 
-`Services/LLM/GeminiRouter.swift` is a Swift `actor` that sits in front of `GeminiService` and handles quota management, retries, fallback, caching, and streaming.
+`Services/LLM/GeminiService.swift` is a `nonisolated struct` that calls the Gemini REST API directly — no router, no quota tracking, no response cache.
 
-### Fallback chain (`GeminiRouterConfig.fallbackChain`)
+### Model
 
-Models are tried left-to-right; the first one with available quota and no rate-limit block wins.
+`GeminiService.model` is `"gemini-3.1-flash-lite"` — the only place the model name appears in the codebase.
 
-| # | Model | RPM | TPM | RPD |
-|---|---|---|---|---|
-| 1 | `gemini-3.5-flash` | 5 | 250 000 | 20 |
-| 2 | `gemini-3.1-flash-lite` | 15 | 250 000 | 500 |
-| 3 | `gemini-3-flash` | 5 | 250 000 | 20 |
-| 4 | `gemini-2.5-flash` | 5 | 250 000 | 20 |
-| 5 | `gemini-2.5-flash-lite` | 10 | 250 000 | 20 |
-| 6 | `gemma-4-26b` | 15 | — | 1 500 |
-| 7 | `gemma-4-31b` | 15 | — | 1 500 |
+### Error handling and retry
 
-### Per-model usage tracking (`ModelUsageTracker`)
+`streamReply(systemInstruction:history:)` returns `AsyncThrowingStream<String, Error>`. The stream throws `GeminiError.rateLimited(retryAfter:)` on 429 and `GeminiError.requestFailed(Int)` on any other non-200 status.
 
-Each model has its own in-memory tracker (keyed by model name in `trackers: [String: ModelUsageTracker]`):
+`AIViewModel.streamAndSpeak()` adds one polite retry: if the stream throws `GeminiError.rateLimited` before any chunk has been yielded, it sleeps for `retryAfter` (default 2s if the header is absent, capped at 10s) and retries once. Any second failure, any other error, or any failure after chunks have started falls through to `onDeviceReply()`.
 
-- **RPM window:** sliding 60-second window of request timestamps. If the window is full, router records the wait until the oldest slot expires and moves on to the next model.
-- **RPD counter:** daily request count, reset at midnight **Pacific time** (`America/Los_Angeles`).
-- **Cooldown:** after `retriesPerModel` (2) consecutive transient failures, the model is put in a 60-second cooldown (`persistentRateLimitCooldown`) before it's eligible again.
-
-### Routing algorithm (both `generateReply` and `streamReply`)
-
-```
-outer while true:
-  for each model in chain:
-    if daily quota exhausted OR in cooldown → skip (continue)
-    if RPM cap reached → record minRPMDelay, skip (continue)
-    attempt loop (up to retriesPerModel = 2):
-      record request → call GeminiService
-      success → cache + return
-      transient error (429 or 5xx):
-        if attempts left → sleep [1s, 2s] or Retry-After header → retry
-        else → start 60s cooldown → break to next model
-  after full chain sweep:
-    if minRPMDelay recorded → sleep that long → retry chain
-    else → throw GeminiError.allModelsExhausted
-```
-
-`usedFallback` is `true` whenever the model that answers is not `chain.first` (`gemini-3.5-flash`). This is surfaced via `.metadata(model:usedFallback:)` in the stream, logged as a warning, and exposed on `GeminiReply`.
-
-### Response cache
-
-- **Key:** SHA-256 hash of `systemInstruction` length-prefixed + each turn's role and text length-prefixed (collision-resistant, no personally identifiable content exposed in logs).
-- **TTL:** 3 600 seconds (1 hour). Expired entries are pruned lazily on every write.
-- **Behaviour:** cache hit returns immediately, increments `cacheHitCount`, logs "Cache hit — reusing…". Cache is cleared on session Stop via `clearCache()` (called from `AIViewModel`), or manually via `GeminiRouter.clearCache()`.
+Free-tier quota state cannot be queried via API — the 429 response is the only ground truth, and the response to it is simply "go on-device." No in-app usage counters, cooldowns, or caches.
 
 ### Streaming
 
-`streamReply` returns `AsyncThrowingStream<GeminiStreamEvent, Error>` with two event kinds:
-- `.metadata(model: String, usedFallback: Bool)` — emitted once, before the first text chunk, from whichever model commits first.
-- `.chunk(String)` — each SSE chunk from `GeminiService.streamReply`.
-
-The router commits to a model on the first chunk received. If a stream errors **after** yielding `.metadata`, it finishes the stream rather than retrying (partial output already sent to TTS).
-
-### In-app usage logging
-
-`GeminiRouter.logUsageSummary()` is called after every successful stream in `AIViewModel.streamAndSpeak()`. It logs RPM/RPD used vs. cap per model to `os_log` (category `GeminiRouter`) and can be read in Console.app filtered by subsystem = bundle identifier.
+`streamReply` yields plain `String` chunks (SSE `data:` lines parsed, text fields extracted). `AIViewModel.streamAndSpeak()` accumulates chunks into a sentence buffer and flushes complete sentences to `SpeechOutput` as they arrive for near-real-time TTS.
 
 ## Language: Bahasa Indonesia In, Bahasa Indonesia Out
 
@@ -121,17 +68,20 @@ Both directions of the pipeline must be locked to Indonesian:
 ## System Persona
 
 ```
-Kamu adalah teman ngobrol driver saat berkendara — santai, hangat, suportif.
-Sesekali ajak ngobrol ringan atau tanya kabar, tapi jangan mengganggu fokus
-berkendara. Jawaban singkat dan natural, dalam Bahasa Indonesia.
+Kamu adalah sohib dekat yang lagi nemenin driver nyetir — santai, akrab, genuinely penasaran sama cerita dia. Ngobrolnya kayak teman lama, bukan asisten.
 
-Topik obrolan bebas dan general — boleh soal cuaca, olahraga, film/series, musik,
-teknologi, makanan, traveling, hewan, fakta unik, motivasi ringan, hobi, dan
-sejenisnya. Jangan mengulang topik yang sudah pernah dibahas di percakapan ini.
-Satu balasan cukup 1-3 kalimat, jangan bertele-tele.
+Gaya bahasa: sehari-hari, boleh pakai "eh", "btw", "nih", "kan", "wkwk" atau ekspresi ringan lainnya — wajar aja, jangan lebay. Jangan pakai emoji, simbol, tanda bintang, atau format apapun karena semua output kamu diucapkan langsung.
+
+Cara ngobrol: nanggepin dulu apa yang driver bilang sebelum ganti topik, ajukan pertanyaan lanjutan yang relevan, variasikan cara kamu buka kalimat. Hindari sapaan yang sama terus atau pola yang terdengar template.
+
+Konten: topik bebas — cuaca, olahraga, film/series, musik, teknologi, makanan, traveling, hewan, fakta unik, motivasi ringan, hobi, dan sejenisnya. Jangan ulangi topik yang sudah dibahas di percakapan ini.
+
+Panjang: 1–3 kalimat, ringkas dan enak diucapkan. Tidak perlu bertele-tele.
 ```
 
-The model decides *what* topic to bring up (and avoids repeats, using conversation history as context); the app decides *when* to prompt it. That split is what makes the three session modes below possible without changing the persona itself.
+Gemini is called with `temperature: 1.0` and `topP: 0.95` (`generationConfig` in the request body) to increase response variety and warmth beyond the conservative defaults.
+
+The model decides *what* topic to bring up (and avoids repeats, using conversation history as context); the app decides *when* to prompt it. That split is what makes the two session modes below possible without changing the persona itself.
 
 ## Voice I/O & Permissions
 
@@ -157,7 +107,7 @@ Fully microphone-driven — no text input, no on-screen transcript required.
 
 ### Streaming TTS flush
 
-Rather than waiting for the full Gemini reply before speaking, `AIViewModel.streamAndSpeak()` reads chunks from `GeminiRouter.streamReply` and flushes complete sentences to `SpeechOutput` as they arrive:
+Rather than waiting for the full Gemini reply before speaking, `AIViewModel.streamAndSpeak()` reads chunks from `GeminiService.streamReply` and flushes complete sentences to `SpeechOutput` as they arrive:
 
 ```
 chunk arrives → append to sentenceBuffer
@@ -177,11 +127,10 @@ The companion's proactive-timer behavior is controlled by a mode, chosen before 
 |---|---|---|---|
 | `continuousProactive` | `Terus-Menerus` | Companion keeps opening new topics back-to-back, staying coherent via conversation history. | ~15–30 s (randomized), re-armed after every reply |
 | `driverInitiated` | `Hanya Merespons` | Companion never speaks first — pure reactive chat. | None |
-| `occasionalProactive` | `Sesekali` | Companion checks in now and then, sparser than continuous. | ~60–120 s (randomized), re-armed after every reply |
 
 **How coherence across topics works:** every exchange (driver utterance or companion-initiated line) is appended to a rolling conversation history and sent back to Gemini as multi-turn context on the next call. That's why topics can drift — "cuaca" → "musik" → "rencana weekend" — while still reading as one continuous conversation instead of disconnected one-shot prompts.
 
-**How a companion-initiated turn works:** there's no real driver utterance to send, so the proactive trigger sends a short internal cue instead — `"(Waktunya kamu yang mulai ngobrol duluan. Pilih topik baru, jangan ulangi topik sebelumnya.)"` — and only the model's spoken reply is what the driver hears. The cue is stored in history purely to keep the API's turn order valid and to help the model track what it already opened with; it is never spoken or shown.
+**How a companion-initiated turn works:** there's no real driver utterance to send, so the proactive trigger sends a short internal cue instead (one of several randomly chosen variants encouraging a natural, non-template opening) — and only the model's spoken reply is what the driver hears. The cue is stored in history purely to keep the API's turn order valid and to help the model track what it already opened with; it is never spoken or shown.
 
 **These intervals are tuned for iteration/demo, not final production behavior.** Production triggers should eventually be state-aware — trip duration, silence length, drowsiness precursor signals — per the six DURING-phase innovation principles in `CLAUDE.md` (anti-habituation by design, sleep-inertia-aware activation, etc.) rather than fixed timers.
 
@@ -202,7 +151,7 @@ One button, two states — this is the only manual control in the UI.
 
 - **Start:** requests mic/speech permissions if not already granted (`SpeechInput.requestAuthorization()`), configures `AVAudioSession` (`.playAndRecord`, `.duckOthers`, `.defaultToSpeaker`), begins a fresh session (empty conversation history), arms the proactive timer per the selected mode, and starts continuous listening.
 - **While running:** the companion retains full conversation context for the entire session — every driver utterance and every companion reply, proactive or reactive, accumulates into the same history and informs every subsequent reply. Nothing is cleared mid-session.
-- **Stop:** cancels the proactive timer, stops `SpeechInput` and `SpeechOutput`, clears conversation history, resets `activeModel`, deactivates `AVAudioSession`, and returns to `status = .idle`. A subsequent Start begins completely fresh, with no memory of the previous session.
+- **Stop:** cancels the proactive timer, stops `SpeechInput` and `SpeechOutput`, clears conversation history, resets `activeModel`, deactivates `AVAudioSession`, and returns to `status = .idle`. A subsequent Start begins completely fresh with no memory of the previous session.
 
 Conversation history is capped to a rolling window of **20 turns** (`historyLimit`) to keep API payload and free-tier token usage in check on long sessions — the driver experiences this as "the companion remembers the whole trip," even though very old turns eventually roll off.
 
@@ -210,8 +159,7 @@ Conversation history is capped to a rolling window of **20 turns** (`historyLimi
 
 | File | Responsibility |
 |---|---|
-| `Services/LLM/GeminiRouter.swift` | Swift `actor`; fallback chain across 7 models; per-model RPM/RPD tracking & cooldown; retry logic; response cache (SHA-256 key, 1-hour TTL); both non-streaming (`generateReply`) and streaming (`streamReply`) entry points. |
-| `Services/LLM/GeminiService.swift` | Direct REST client to the Gemini Developer API. `generateContent` (non-streaming) and `streamGenerateContent` (SSE). Reads API key from `Info.plist`. Parses `429` → `GeminiError.rateLimited` with optional `Retry-After`. |
+| `Services/LLM/GeminiService.swift` | Direct REST client to the Gemini Developer API. `streamGenerateContent` (SSE), single hardcoded model (`gemini-3.1-flash-lite`). Reads API key from `Info.plist`. Parses `429` → `GeminiError.rateLimited` with optional `Retry-After`. |
 | `Services/Speech/SpeechInput.swift` | `SFSpeechRecognizer` wrapper, `id-ID` locale, continuous recognition with 0.8-second silence timer, `pause()`/`resume()`/`stop()`. |
 | `Services/Speech/SpeechOutput.swift` | `AVSpeechSynthesizer` wrapper; picks highest-quality `id-ID` voice; `enqueue()`/`endStream()` for streaming TTS; `speak()` for one-shot; fires `onFinish` after all queued utterances complete. |
 | `ViewModels/AIViewmodel.swift` | `@MainActor` `ObservableObject` (`@available(iOS 26.0, *)`); orchestrates mic capture, routing, history, session mode/timer logic, Start/Stop lifecycle, sentence-buffer flush. |
@@ -251,7 +199,7 @@ Because the key had already entered local commit history — even though the act
 
 No paid dashboard needed for this project. **aistudio.google.com/usage** shows RPM (requests/minute), TPM (tokens/minute), and RPD (requests/day) per model against the free-tier quota. Full request/response logs require billing to be enabled — intentionally skipped to stay on the free tier; not needed at course-project observability levels.
 
-**In-app:** after every successful stream, `AIViewModel` calls `GeminiRouter.logUsageSummary()`, which emits an `os_log` message (subsystem = bundle identifier, category = `GeminiRouter`) showing RPM/RPD used vs. cap per model and cache hit count. Read it live in Console.app filtered by subsystem.
+**In-app:** `activeModel` (published on `AIViewModel`) shows `gemini-3.1-flash-lite` during Gemini replies and `Foundation Models (on-device)` when the fallback fires. This is the only in-app observability — no usage counters or quota logging by design.
 
 ## Roadmap / Open Items
 
