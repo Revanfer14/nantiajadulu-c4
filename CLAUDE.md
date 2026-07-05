@@ -35,8 +35,8 @@ Full spec lives in `GeminiModel.md` — read that for system persona, session mo
 Driver speech (mic, id-ID) ──▶ SpeechInput (SFSpeechRecognizer, silence-timeout utterance detection)
       │
       ▼
-   Online?  ──yes──▶ GeminiRouter ──▶ GeminiService (REST, streamGenerateContent)
-      │no                  │ (all models exhausted / transient failure)
+   Online?  ──yes──▶ GeminiService (REST, streamGenerateContent, gemini-3.1-flash-lite)
+      │no                  │ any error (one retry on pre-chunk 429)
       ▼                    ▼
 FoundationModels (on-device, LanguageModelSession) ──▶ static fallback line
       │
@@ -44,23 +44,11 @@ FoundationModels (on-device, LanguageModelSession) ──▶ static fallback lin
 SpeechOutput (AVSpeechSynthesizer, id-ID voice, sentence-by-sentence streaming)
 ```
 
-Key files: `AIViewmodel.swift` (orchestration, session modes, proactive timer, `NWPathMonitor` for online/offline), `GeminiRouter.swift` (fallback chain, caching, quota tracking), `GeminiService.swift` (raw REST client), `SpeechInput.swift` / `SpeechOutput.swift`, `AIGeminiView.swift` (mode picker + Start/Stop, no chat UI).
+Key files: `AIViewmodel.swift` (orchestration, session modes, proactive timer, `NWPathMonitor` for online/offline), `GeminiService.swift` (REST client, single hardcoded model), `SpeechInput.swift` / `SpeechOutput.swift`, `AIGeminiView.swift` (mode picker + Start/Stop, no chat UI).
 
-### Gemini fallback chain
+### Single model
 
-`GeminiRouterConfig.fallbackChain` in `GeminiRouter.swift` is the source of truth. Router tries each model in order, skips models that are daily-quota-exhausted or in cooldown, retries transient errors (429 / 5xx) with backoff, and falls through to the next model on persistent failure:
-
-| Order | Model | RPM cap | RPD cap | Notes |
-|---|---|---|---|---|
-| 1 | `gemini-3.5-flash` | 5 | 20 | Primary — highest quality, tightest quota |
-| 2 | `gemini-3-flash` | 5 | 20 | |
-| 3 | `gemini-2.5-flash` | 5 | 20 | |
-| 4 | `gemini-2.5-flash-lite` | 10 | 20 | |
-| 5 | `gemini-3.1-flash-lite` | 15 | 500 | Most quota-generous "real" Gemini model |
-| 6 | `gemma-4-26b` | 15 | 1500 | |
-| 7 | `gemma-4-31b` | 15 | 1500 | Last resort before Foundation Models fallback |
-
-Other quota-defense mechanisms in `GeminiRouterConfig`: response cache (1hr TTL, SHA256 of system instruction + history), per-model RPM sliding-window queue, RPD tracking that resets at midnight Pacific, 2 retries per model with 1.0s/2.0s backoff, then a 60s cooldown before that model is tried again. Mock mode was intentionally removed — always hits real quota.
+`GeminiService.model` (hardcoded constant in `GeminiService.swift`) is `gemini-3.1-flash-lite` — the only place the model name appears in the codebase. It was chosen for its 500 RPD / 15 RPM free-tier headroom. Any Gemini failure (429, 5xx, network, parse error) falls back to on-device FoundationModels. There is no quota tracking, no cooldown, and no response cache — free-tier quota state can't be queried via API; the 429 response is the only ground truth, and the response to it is to go on-device. One polite retry (sleeping `Retry-After`, defaulting to 2s, capped at 10s) fires on a pre-chunk 429 before falling back, to avoid a jarring quality cliff from a single per-minute rate-limit blip.
 
 ## Feature 2 — Detection
 
@@ -110,8 +98,7 @@ drivecompanion/
 │   │   ├── DrowsinessDetector.swift
 │   │   └── AlarmService.swift
 │   ├── LLM/
-│   │   ├── GeminiService.swift     # Raw REST client (generateContent / streamGenerateContent)
-│   │   └── GeminiRouter.swift      # Fallback chain, caching, quota tracking
+│   │   └── GeminiService.swift     # REST client (streamGenerateContent), single hardcoded model
 │   └── Speech/
 │       ├── SpeechInput.swift       # SFSpeechRecognizer, continuous listening, silence timeout
 │       └── SpeechOutput.swift      # AVSpeechSynthesizer wrapper, id-ID voice
@@ -135,9 +122,8 @@ Secrets.xcconfig                    # GEMINI_API_KEY — gitignored, never commi
 - **ARKit + SceneKit** — `ARFaceTrackingConfiguration`, requires TrueDepth camera hardware.
 - **Speech** — `SFSpeechRecognizer`, locale `id-ID`.
 - **AVFoundation** — `AVSpeechSynthesizer` (TTS), `AVAudioPlayer` (alarms), `AVAudioSession` (`.playAndRecord` for companion, `.playback` + `.duckOthers` for alarms).
-- **FoundationModels** — on-device LLM, offline fallback only (`LanguageModelSession`).
+- **FoundationModels** — on-device LLM, fallback when Gemini is offline or fails (`LanguageModelSession`).
 - **Network** — `NWPathMonitor` for online/offline routing.
-- **CryptoKit** — SHA256 cache keys in `GeminiRouter`.
 - Gemini access is **direct `URLSession` REST calls**, not the Firebase SDK — deferred until iOS 27 is stable (~September 2026), see `GeminiModel.md`.
 
 ## Code Style Requirements
