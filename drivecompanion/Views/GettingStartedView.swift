@@ -10,19 +10,17 @@ import SwiftUI
 struct GettingStartedView: View {
     private let permissionManager = PermissionManager()
     
+    @GestureState var dragOffset: CGFloat = 0
     @State private var hasPermission: Bool = false
     
-    @AppStorage("hasSeenOnboarding")
-    private var hasSeenOnboarding: Bool = false
+    @Binding var isVisible: Bool
+    @Binding var hasSeenOnboarding: Bool
     
     var body: some View {
         VStack (alignment: .leading, spacing: 20) {
-            Spacer()
-            
             // MARK: Header
-            Text("Kenalan dengan AppName!")
+            Text("Kenalan dengan Jaga!")
                 .font(AppFont.screenTitle)
-                .fontWeight(.bold)
                 .foregroundStyle(AppColor.textPrimary)
             
             // MARK: Cards
@@ -40,22 +38,33 @@ struct GettingStartedView: View {
             
             // MARK: Button
             PrimaryButton("Lanjutkan") {
-                guard !hasPermission else {
-                    return
+                withAnimation(
+                    .spring(response: 0.45,
+                            dampingFraction: 0.85)
+                ) {
+                    isVisible = false
                 }
                 
-                hasPermission = true
-                
-                Task {
-                    await permissionManager.requestPermissions()
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
                     hasSeenOnboarding = true
                 }
             }
         }
-        .padding(20)
+        .padding(.top, 50)
+        .padding(.bottom, 30)
+        .padding(.horizontal, 20)
+        .background(AppColor.background)
+        .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .offset(y: min(dragOffset * 0.35, 120))
+        .gesture(
+            DragGesture()
+                .updating($dragOffset) { value, state, _ in
+                    state = value.translation.height }
+        )
+        // TODO: Fix - this page shouldn't be able to be dragged from the bottom
     }
 }
 
-#Preview {
-    GettingStartedView()
-}
+//#Preview {
+//    GettingStartedView()
+//}
