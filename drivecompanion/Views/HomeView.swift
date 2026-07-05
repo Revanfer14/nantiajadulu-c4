@@ -8,6 +8,8 @@
 import SwiftUI
 
 struct HomeView: View {
+    @State private var isDrivingActive = false
+    
     var body: some View {
         ZStack {
             // TODO: Add background cloud, car, mascot
@@ -24,11 +26,14 @@ struct HomeView: View {
                 Spacer()
                 
                 PrimaryButton("Lanjutkan") {
-                    // TODO: Navigate to DrivingView
+                    isDrivingActive = true
                 }
             }
             .padding(.top, 50)
             .padding(.horizontal, 20)
+        }
+        .fullScreenCover(isPresented: $isDrivingActive) {
+            DrivingView()
         }
     }
 }
