@@ -38,7 +38,7 @@ enum CompanionStatus: String {
     case alerting = "Terdeteksi ngantuk"
 }
 
-@available(iOS 26.0, *)
+//@available(iOS 26.0, *)
 @MainActor
 final class AIViewModel: ObservableObject {
     @Published var isRunning = false
