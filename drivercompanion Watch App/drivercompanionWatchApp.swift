@@ -13,7 +13,7 @@ struct drivercompanionWatchApp: App {
     
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            DrivingView()
         }
     }
 }
