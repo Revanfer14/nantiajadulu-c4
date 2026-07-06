@@ -7,9 +7,12 @@
 
 import Foundation
 import WatchConnectivity
+import Combine
 
-final class WatchConnectivityManager: NSObject {
+final class WatchConnectivityManager: NSObject, ObservableObject {
     static let shared = WatchConnectivityManager()
+    
+    @Published var state: DrowsinessState = .alert
     
     private override init() {
         super.init()
@@ -38,20 +41,23 @@ extension WatchConnectivityManager: WCSessionDelegate {
     
     func session(
         _ session: WCSession,
-        didReceiveMessage message: [String: Any],
+        didReceiveMessage message: [String: Any]
     ) {
-        print("Message received: \(message)")
+        print("Received:", message)
         
-        guard let action = message["action"] as? String else {
-            return
-        }
-        
-        switch action {
-        case "startDrivingSession":
-            print("Driving session started")
+        DispatchQueue.main.async {
+            if let action = message["action"] as? String {
+                switch action {
+                case "startDrivingSession": print("Driving session started")
+                    
+                default: break
+                }
+            }
             
-        default:
-            break
+            if let rawValue = message["drowsinessState"] as? String,
+               let state = DrowsinessState(rawValue: rawValue) {
+                self.state = state
+            }
         }
     }
 }
