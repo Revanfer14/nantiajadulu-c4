@@ -80,9 +80,15 @@ struct DrivingView: View {
                 }
             }
             
-//        #if DEBUG
-//            debugCameraPreview
-//        #endif
+        #if DEBUG
+            VStack {
+                Spacer()
+                
+                debugCameraPreview
+                
+                Spacer()
+            }
+        #endif
         }
     }
     
