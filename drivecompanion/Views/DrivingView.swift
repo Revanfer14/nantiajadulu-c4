@@ -80,9 +80,9 @@ struct DrivingView: View {
                 }
             }
             
-        #if DEBUG
-            debugCameraPreview
-        #endif
+//        #if DEBUG
+//            debugCameraPreview
+//        #endif
         }
     }
     
