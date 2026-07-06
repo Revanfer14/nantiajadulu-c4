@@ -7,6 +7,8 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		E812F7F02FFBD9F500558D7A /* SharedDrowsinessState.swift in Sources */ = {isa = PBXBuildFile; fileRef = E812F7CA2FFBD9F500558D7A /* SharedDrowsinessState.swift */; };
+		E812F80A2FFBE32E00558D7A /* SharedDrowsinessState.swift in Sources */ = {isa = PBXBuildFile; fileRef = E812F7CA2FFBD9F500558D7A /* SharedDrowsinessState.swift */; };
 		E8FD662D2FFA805000416E38 /* drivercompanion Watch App.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = E8FD66232FFA805000416E38 /* drivercompanion Watch App.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
 
@@ -36,6 +38,7 @@
 
 /* Begin PBXFileReference section */
 		76ED18402FF4D33F007C646C /* drivecompanion.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = drivecompanion.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		E812F7CA2FFBD9F500558D7A /* SharedDrowsinessState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SharedDrowsinessState.swift; sourceTree = "<group>"; };
 		E8FD66232FFA805000416E38 /* drivercompanion Watch App.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "drivercompanion Watch App.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -86,6 +89,7 @@
 		76ED18372FF4D33F007C646C = {
 			isa = PBXGroup;
 			children = (
+				E812F7CA2FFBD9F500558D7A /* SharedDrowsinessState.swift */,
 				76ED18422FF4D33F007C646C /* drivecompanion */,
 				E8FD66242FFA805000416E38 /* drivercompanion Watch App */,
 				76ED18412FF4D33F007C646C /* Products */,
@@ -210,6 +214,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				E812F7F02FFBD9F500558D7A /* SharedDrowsinessState.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -217,6 +222,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				E812F80A2FFBE32E00558D7A /* SharedDrowsinessState.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
