@@ -85,7 +85,7 @@ final class AIViewModel: ObservableObject {
     private let monitor = NWPathMonitor()
     private let drowsinessMonitor: DrowsinessMonitor
     private var isOnline = true
-    private var history: [ChatTurn] = []
+    var history: [ChatTurn] = []
     private var proactiveTask: Task<Void, Never>?
     private var cancellables = Set<AnyCancellable>()
     
