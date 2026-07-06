@@ -58,7 +58,7 @@ final class AIViewModel: ObservableObject {
 
     private static let drowsyCue = "(Driver kamu mulai terlihat ngantuk — kedipan melambat dan kepala mulai turun. Tegur santai, tanya kabarnya, dan sarankan istirahat sebentar kalau memang perlu.)"
     private static let microsleepCue = "(PERINGATAN: driver kamu baru saja microsleep, matanya sempat tertutup beberapa detik saat menyetir. Ini serius — tegur dengan tegas tapi tetap suportif, dan dorong dia untuk berhenti/istirahat sekarang juga.)"
-    private static let recoveryCue = "(Driver kamu baru saja kembali fokus setelah sempat mengantuk/microsleep. Tanya gimana kondisinya sekarang dengan hangat.)"
+    private static let recoveryNote = "(Driver baru saja pulih dari kondisi mengantuk/microsleep dan sekarang sudah fokus kembali.)"
     
     private let gemini = GeminiService()
     private let speechInput = SpeechInput()
@@ -191,12 +191,21 @@ final class AIViewModel: ObservableObject {
         
         if alarmActive {
             pauseForAlarm()
-            pendingDrowsinessCue = newState == .microsleep ? Self.microsleepCue : Self.drowsyCue
+            let isPendingMicrosleep = pendingDrowsinessCue == Self.microsleepCue
+            if newState == .microsleep || !isPendingMicrosleep {
+                pendingDrowsinessCue = newState == .microsleep ? Self.microsleepCue : Self.drowsyCue
+            }
             return
         }
         
         if wasAlarmActive {
-            pendingDrowsinessCue = Self.recoveryCue
+            if let cue = pendingDrowsinessCue {
+                pendingDrowsinessCue = nil
+                Task { await sendTurn(cue) }
+            } else {
+                resumeAfterAlarm()
+            }
+            return
         }
         
         guard let cue = pendingDrowsinessCue else { return }
@@ -210,6 +219,13 @@ final class AIViewModel: ObservableObject {
         speechOutput.stop()
         speechInput.pause()
         status = .alerting
+    }
+    
+    private func resumeAfterAlarm() {
+        appendHistory(ChatTurn(role: .user, text: Self.recoveryNote))
+        speechInput.resume()
+        status = .listening
+        armProactiveTimer()
     }
     
     private func armProactiveTimer() {
