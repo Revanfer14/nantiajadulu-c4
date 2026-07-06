@@ -97,8 +97,7 @@ final class AIViewModel: ObservableObject {
     }
     
     private let historyLimit = 20
-    private let sentenceEnders: Set<Character> = [".", "!", "?"]
-    
+
     private var proactiveCue: String {
         let cues = [
             "(Waktunya kamu mulai ngobrol duluan. Buka dengan cara yang natural — bisa nanya kabar driver, nyeletuk sesuatu, atau angkat topik ringan baru yang belum pernah dibahas.)",
@@ -259,7 +258,6 @@ final class AIViewModel: ObservableObject {
         while true {
             let stream = gemini.streamReply(systemInstruction: Self.systemPersona, history: history)
             var fullText = ""
-            var sentenceBuffer = ""
             var firstChunk = true
             do {
                 for try await chunk in stream {
@@ -269,12 +267,10 @@ final class AIViewModel: ObservableObject {
                         firstChunk = false
                     }
                     fullText += chunk
-                    sentenceBuffer += chunk
-                    flushSentences(&sentenceBuffer)
                 }
-                let remaining = sentenceBuffer.trimmingCharacters(in: .whitespacesAndNewlines)
-                if !remaining.isEmpty {
-                    enqueueSpeech(remaining)
+                let reply = fullText.trimmingCharacters(in: .whitespacesAndNewlines)
+                if !reply.isEmpty {
+                    enqueueSpeech(reply)
                 }
                 speechOutput.endStream()
                 return fullText
@@ -282,17 +278,6 @@ final class AIViewModel: ObservableObject {
                 attempt += 1
                 try await Task.sleep(for: .seconds(min(retryAfter ?? 2, 10)))
             }
-        }
-    }
-    
-    private func flushSentences(_ buffer: inout String) {
-        while let idx = buffer.firstIndex(where: { sentenceEnders.contains($0) }) {
-            let end = buffer.index(after: idx)
-            let sentence = String(buffer[..<end]).trimmingCharacters(in: .whitespaces)
-            if !sentence.isEmpty {
-                enqueueSpeech(sentence)
-            }
-            buffer = String(buffer[end...])
         }
     }
     
