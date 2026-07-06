@@ -22,9 +22,10 @@ final class WatchConnectivityManager: NSObject {
         WCSession.default.activate()
     }
     
+    // MARK: Start driving session
     func startDrivingSession() {
         guard WCSession.default.isReachable else {
-            print("Cannot send message. Watch is not reachable")
+            print("Cannot send state. Watch is not reachable")
             return
         }
         
@@ -37,6 +38,24 @@ final class WatchConnectivityManager: NSObject {
         }
         
         print("Start session in Watch")
+    }
+    
+    // MARK: Send drowsiness state
+    func sendDrowsinessState(_ state: DrowsinessState) {
+        guard WCSession.default.isReachable else {
+            print("Cannot send state. Watch is not reachable")
+            return
+        }
+        
+        WCSession.default.sendMessage(
+            ["drowsinessState": state.rawValue],
+            replyHandler: nil
+        ) {
+            error in
+            print("Failed to send message: \(error.localizedDescription)")
+        }
+        
+        print("State sent: \(state.rawValue)")
     }
 }
 
