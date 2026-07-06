@@ -10,7 +10,7 @@ import SwiftUI
 // MARK: - App Color
 enum AppColor {
     // MARK: Background
-    static let primaryColor = Color("AppPrimary")
+    static let appPrimary = Color("AppPrimary")
     static let background = Color("Background")
     
     // MARK: Text Color
