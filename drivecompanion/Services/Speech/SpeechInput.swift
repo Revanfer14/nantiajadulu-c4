@@ -98,7 +98,7 @@ final class SpeechInput {
         recognitionTask = nil
     }
 
-    private static let silenceTimeout: TimeInterval = 0.8
+    private static let silenceTimeout: TimeInterval = 1.0
 
     private func resetSilenceTimer() {
         silenceTimer?.invalidate()

@@ -31,6 +31,7 @@ final class SpeechOutput: NSObject {
         let utterance = AVSpeechUtterance(string: text)
         utterance.voice = voice
         utterance.rate = AVSpeechUtteranceDefaultSpeechRate
+        utterance.postUtteranceDelay = 0.15
         pendingCount += 1
         synthesizer.speak(utterance)
     }
