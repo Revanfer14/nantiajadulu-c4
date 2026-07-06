@@ -31,7 +31,7 @@ struct PrimaryButton: View {
             .foregroundStyle(AppColor.background)
             .frame(maxWidth: .infinity)
             .padding(.vertical, 16)
-            .background(AppColor.primaryColor)
+            .background(AppColor.appPrimary)
             .clipShape(Capsule())
             .glassEffect()
         }
