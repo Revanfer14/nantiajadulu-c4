@@ -8,7 +8,6 @@
 import SwiftUI
 
 struct GettingStartedView: View {
-    private let permissionManager = PermissionManager()
     
     @GestureState var dragOffset: CGFloat = 0
     @State private var hasPermission: Bool = false
@@ -59,12 +58,11 @@ struct GettingStartedView: View {
         .gesture(
             DragGesture()
                 .updating($dragOffset) { value, state, _ in
-                    state = value.translation.height }
+                    state = max(value.translation.height, 0) } // kalo negative, bisa drag ke atas jg
         )
-        // TODO: Fix - this page shouldn't be able to be dragged from the bottom
     }
 }
 
-//#Preview {
-//    GettingStartedView()
-//}
+#Preview {
+    GettingStartedView(isVisible: .constant(true), hasSeenOnboarding: .constant(false))
+}

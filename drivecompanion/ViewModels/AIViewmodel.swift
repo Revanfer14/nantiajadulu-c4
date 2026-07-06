@@ -14,9 +14,9 @@ import Combine
 enum SessionMode: String, CaseIterable, Identifiable {
     case continuousProactive = "Terus-Menerus"
     case driverInitiated = "Hanya Merespons"
-
+    
     var id: String { rawValue }
-
+    
     var nextInterval: TimeInterval? {
         switch self {
         case .continuousProactive:
@@ -43,22 +43,41 @@ final class AIViewModel: ObservableObject {
     @Published var selectedMode: SessionMode = .continuousProactive
     @Published var permissionDenied = false
     @Published var activeModel: String = ""
-
+    
     private static let systemPersona = """
-    Kamu adalah sohib dekat yang lagi nemenin driver nyetir — santai, akrab, genuinely penasaran sama cerita dia. Ngobrolnya kayak teman lama, bukan asisten.
-
-    Gaya bahasa: sehari-hari, boleh pakai "eh", "btw", "nih", "kan", "wkwk" atau ekspresi ringan lainnya — wajar aja, jangan lebay. Jangan pakai emoji, simbol, tanda bintang, atau format apapun karena semua output kamu diucapkan langsung.
-
-    Cara ngobrol: nanggepin dulu apa yang driver bilang sebelum ganti topik, ajukan pertanyaan lanjutan yang relevan, variasikan cara kamu buka kalimat. Hindari sapaan yang sama terus atau pola yang terdengar template.
-
-    Konten: topik bebas — cuaca, olahraga, film/series, musik, teknologi, makanan, traveling, hewan, fakta unik, motivasi ringan, hobi, dan sejenisnya. Jangan ulangi topik yang sudah dibahas di percakapan ini.
-
-    Panjang: 1–3 kalimat, ringkas dan enak diucapkan. Tidak perlu bertele-tele.
-    """
-
+        Kamu adalah sohib dekat yang lagi nemenin driver nyetir — santai, akrab, genuinely penasaran sama cerita dia. Ngobrolnya kayak temen lama, bukan asisten.
+        
+        Panggil diri sendiri "gua" dan lawan bicara "lu" — bukan "aku/kamu", bukan "saya/anda". Konsisten dari awal sampai akhir.
+        
+        JANGAN pernah tutup kalimat dengan "ya" (contoh yang dilarang: "hati-hati ya", "semangat ya", "seru ya"). Ganti dengan penutup lain atau langsung potong kalimatnya, misal "hati-hati di jalan" bukan "hati-hati ya di jalan".
+        
+        Gaya bahasa: pakai kontraksi sehari-hari — "gak" bukan "tidak", "kalo" bukan "kalau", "emang" bukan "memang", "gitu" bukan "seperti itu", "udah" bukan "sudah". Selipin "eh", "btw", "nih", "kan", "wkwk" secukupnya, jangan tiap kalimat.
+        
+        Hindari frasa yang kedengaran AI banget: "semangat terus", "wah keren banget", "menurutku", "gimana kabarnya", atau nanya sesuatu yang generic tanpa nyambung ke omongan driver sebelumnya. Jangan selalu antusias — kadang cukup nimbrung santai, boleh sedikit skeptis atau bercanda kalo emang pas momennya.
+        
+        Jangan pakai emoji, simbol, tanda bintang, atau format apapun karena semua output kamu diucapkan langsung.
+        
+        Cara ngobrol: nanggepin dulu apa yang driver bilang sebelum ganti topik, ajukan pertanyaan lanjutan yang relevan, variasikan cara lu buka kalimat — jangan mulai dengan pola yang sama terus (misal selalu "Wah" atau selalu nanya).
+        
+        Konten: topik bebas — cuaca, olahraga, film/series, musik, teknologi, makanan, traveling, hewan, fakta unik, motivasi ringan, hobi, dan sejenisnya. Jangan ulangi topik yang udah dibahas di percakapan ini.
+        
+        Panjang: 1–3 kalimat, ringkas dan enak diucapkan. Gak perlu bertele-tele.
+        
+        Contoh gaya ngobrol yang bener:
+        
+        Driver: "Capek banget gua hari ini, macet dari tadi."
+        Kamu: "Anjir sama, dari tadi gua liat maps merah semua. Lu udah dari jam berapa di jalan?"
+        
+        Driver: "Baru nonton film horor semalem, serem juga."
+        Kamu: "Judulnya apa tuh? Gua udah lama gak nonton horor soalnya kebanyakan ketebak endingnya."
+        
+        Driver: "Enakan kucing atau anjing sih menurut lu?"
+        Kamu: "Kucing sih gua, gak ribet ngurusnya. Tapi anjing emang lebih setia katanya, lu tim mana?"
+        """
+    
     private static let drowsyCue = "(Driver kamu mulai terlihat ngantuk — kedipan melambat dan kepala mulai turun. Tegur santai, tanya kabarnya, dan sarankan istirahat sebentar kalau memang perlu.)"
     private static let microsleepCue = "(PERINGATAN: driver kamu baru saja microsleep, matanya sempat tertutup beberapa detik saat menyetir. Ini serius — tegur dengan tegas tapi tetap suportif, dan dorong dia untuk berhenti/istirahat sekarang juga.)"
-    private static let recoveryCue = "(Driver kamu baru saja kembali fokus setelah sempat mengantuk/microsleep. Tanya gimana kondisinya sekarang dengan hangat.)"
+    private static let recoveryNote = "(Driver baru saja pulih dari kondisi mengantuk/microsleep dan sekarang sudah fokus kembali.)"
     
     private let gemini = GeminiService()
     private let speechInput = SpeechInput()
@@ -69,7 +88,7 @@ final class AIViewModel: ObservableObject {
     private var history: [ChatTurn] = []
     private var proactiveTask: Task<Void, Never>?
     private var cancellables = Set<AnyCancellable>()
-
+    
     private var lastAnnouncedState: DrowsinessState = .alert
     private var pendingDrowsinessCue: String?
     
@@ -78,7 +97,6 @@ final class AIViewModel: ObservableObject {
     }
     
     private let historyLimit = 20
-    private let sentenceEnders: Set<Character> = [".", "!", "?"]
 
     private var proactiveCue: String {
         let cues = [
@@ -89,7 +107,7 @@ final class AIViewModel: ObservableObject {
         ]
         return cues.randomElement() ?? cues[0]
     }
-
+    
     init(drowsinessMonitor: DrowsinessMonitor) {
         self.drowsinessMonitor = drowsinessMonitor
         
@@ -101,7 +119,7 @@ final class AIViewModel: ObservableObject {
             }
         }
         monitor.start(queue: queue)
-
+        
         speechOutput.onFinish = { [weak self] in
             Task { @MainActor [weak self] in
                 guard let self, self.isRunning else { return }
@@ -120,7 +138,7 @@ final class AIViewModel: ObservableObject {
             }
             .store(in: &cancellables)
     }
-
+    
     func start() async {
         let granted = await SpeechInput.requestAuthorization()
         guard granted else {
@@ -128,7 +146,7 @@ final class AIViewModel: ObservableObject {
             return
         }
         permissionDenied = false
-
+        
         do {
             let session = AVAudioSession.sharedInstance()
             try session.setCategory(.playAndRecord, options: [.duckOthers, .defaultToSpeaker])
@@ -136,13 +154,13 @@ final class AIViewModel: ObservableObject {
         } catch {
             return
         }
-
+        
         history = []
         activeModel = ""
         lastAnnouncedState = drowsinessMonitor.state
         pendingDrowsinessCue = nil
         isRunning = true
-
+        
         speechInput.start { [weak self] transcript in
             Task { @MainActor [weak self] in
                 await self?.sendTurn(transcript)
@@ -157,7 +175,7 @@ final class AIViewModel: ObservableObject {
             status = .listening
         }
     }
-
+    
     func stop() {
         proactiveTask?.cancel()
         proactiveTask = nil
@@ -169,10 +187,10 @@ final class AIViewModel: ObservableObject {
         pendingDrowsinessCue = nil
         isRunning = false
         status = .idle
-
+        
         try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
     }
-
+    
     private func sendTurn(_ userText: String) async {
         guard isRunning, !isAlarmActive else { return }
         appendHistory(ChatTurn(role: .user, text: userText))
@@ -181,7 +199,7 @@ final class AIViewModel: ObservableObject {
         let reply = await respond()
         appendHistory(ChatTurn(role: .model, text: reply))
     }
-
+    
     private func handleDrowsinessChange(_ newState: DrowsinessState) {
         defer { lastAnnouncedState = newState }
         guard isRunning else { return }
@@ -191,12 +209,21 @@ final class AIViewModel: ObservableObject {
         
         if alarmActive {
             pauseForAlarm()
-            pendingDrowsinessCue = newState == .microsleep ? Self.microsleepCue : Self.drowsyCue
+            let isPendingMicrosleep = pendingDrowsinessCue == Self.microsleepCue
+            if newState == .microsleep || !isPendingMicrosleep {
+                pendingDrowsinessCue = newState == .microsleep ? Self.microsleepCue : Self.drowsyCue
+            }
             return
         }
         
         if wasAlarmActive {
-            pendingDrowsinessCue = Self.recoveryCue
+            if let cue = pendingDrowsinessCue {
+                pendingDrowsinessCue = nil
+                Task { await sendTurn(cue) }
+            } else {
+                resumeAfterAlarm()
+            }
+            return
         }
         
         guard let cue = pendingDrowsinessCue else { return }
@@ -212,17 +239,24 @@ final class AIViewModel: ObservableObject {
         status = .alerting
     }
     
+    private func resumeAfterAlarm() {
+        appendHistory(ChatTurn(role: .user, text: Self.recoveryNote))
+        speechInput.resume()
+        status = .listening
+        armProactiveTimer()
+    }
+    
     private func armProactiveTimer() {
         proactiveTask?.cancel()
         guard !isAlarmActive, let interval = selectedMode.nextInterval else { return }
-
+        
         proactiveTask = Task { [weak self] in
             try? await Task.sleep(for: .seconds(interval))
             guard let self, !Task.isCancelled else { return }
             await self.sendTurn(self.proactiveCue)
         }
     }
-
+    
     private func respond() async -> String {
         if isOnline {
             do {
@@ -234,13 +268,12 @@ final class AIViewModel: ObservableObject {
             return await onDeviceReply()
         }
     }
-
+    
     private func streamAndSpeak() async throws -> String {
         var attempt = 0
         while true {
             let stream = gemini.streamReply(systemInstruction: Self.systemPersona, history: history)
             var fullText = ""
-            var sentenceBuffer = ""
             var firstChunk = true
             do {
                 for try await chunk in stream {
@@ -250,12 +283,10 @@ final class AIViewModel: ObservableObject {
                         firstChunk = false
                     }
                     fullText += chunk
-                    sentenceBuffer += chunk
-                    flushSentences(&sentenceBuffer)
                 }
-                let remaining = sentenceBuffer.trimmingCharacters(in: .whitespacesAndNewlines)
-                if !remaining.isEmpty {
-                    enqueueSpeech(remaining)
+                let reply = fullText.trimmingCharacters(in: .whitespacesAndNewlines)
+                if !reply.isEmpty {
+                    enqueueSpeech(reply)
                 }
                 speechOutput.endStream()
                 return fullText
@@ -265,18 +296,7 @@ final class AIViewModel: ObservableObject {
             }
         }
     }
-
-    private func flushSentences(_ buffer: inout String) {
-        while let idx = buffer.firstIndex(where: { sentenceEnders.contains($0) }) {
-            let end = buffer.index(after: idx)
-            let sentence = String(buffer[..<end]).trimmingCharacters(in: .whitespaces)
-            if !sentence.isEmpty {
-                enqueueSpeech(sentence)
-            }
-            buffer = String(buffer[end...])
-        }
-    }
-
+    
     private func onDeviceReply() async -> String {
         let session = LanguageModelSession(
             model: SystemLanguageModel.default,
@@ -303,12 +323,12 @@ final class AIViewModel: ObservableObject {
         guard !isAlarmActive else { return }
         speechOutput.enqueue(text)
     }
-
+    
     private func speakIfNotAlarming(_ text: String) {
         guard !isAlarmActive else { return }
         speechOutput.speak(text)
     }
-
+    
     private func appendHistory(_ turn: ChatTurn) {
         history.append(turn)
         if history.count > historyLimit {

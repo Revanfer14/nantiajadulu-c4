@@ -22,7 +22,7 @@ struct CardTransparent: View {
         HStack (spacing: 12) {
             Image(systemName: iconName)
                 .font(AppFont.iconSize)
-                .foregroundStyle(AppColor.primaryColor)
+                .foregroundStyle(AppColor.appPrimary)
                 .frame(width: 50, height: 50)
             
             VStack (alignment: .leading) {
