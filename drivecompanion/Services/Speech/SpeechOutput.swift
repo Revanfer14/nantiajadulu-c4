@@ -30,7 +30,8 @@ final class SpeechOutput: NSObject {
     func enqueue(_ text: String) {
         let utterance = AVSpeechUtterance(string: text)
         utterance.voice = voice
-        utterance.rate = AVSpeechUtteranceDefaultSpeechRate
+        utterance.rate = AVSpeechUtteranceDefaultSpeechRate * 0.9
+        utterance.postUtteranceDelay = 0.20
         pendingCount += 1
         synthesizer.speak(utterance)
     }
