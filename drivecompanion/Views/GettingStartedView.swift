@@ -8,7 +8,6 @@
 import SwiftUI
 
 struct GettingStartedView: View {
-    private let permissionManager = PermissionManager()
     
     @GestureState var dragOffset: CGFloat = 0
     @State private var hasPermission: Bool = false
