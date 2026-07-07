@@ -92,6 +92,13 @@ final class AIViewModel: ObservableObject {
         return Self.affirmativeKeywords.contains { lowercased == $0 || lowercased.hasPrefix($0 + " ") || lowercased.hasPrefix($0 + ",") }
     }
     
+    private static let negativeKeywords = ["tidak", "gak", "ga", "nggak", "enggak", "engga", "gausah", "males", "nanti aja", "skip"]
+
+    private func isNegative(_ text: String) -> Bool {
+        let lowercased = text.lowercased().trimmingCharacters(in: .whitespaces)
+        return Self.negativeKeywords.contains { lowercased == $0 || lowercased.hasPrefix($0 + " ") || lowercased.hasPrefix($0 + ",") }
+    }
+    
     private let gemini = GeminiService()
     private let speechInput = SpeechInput()
     private let speechOutput = SpeechOutput()
@@ -114,6 +121,7 @@ final class AIViewModel: ObservableObject {
     private var lastAnnouncedState: DrowsinessState = .alert
     private var pendingRecoveryState: DrowsinessState?
     private var pendingRestStopPrompt = false
+    private var pendingSuggestionOrigin: RestStopSuggestionOrigin?
     
     private var isAlarmActive: Bool {
         drowsinessMonitor.state == .drowsy || drowsinessMonitor.state == .microsleep
@@ -220,6 +228,7 @@ final class AIViewModel: ObservableObject {
         lastAnnouncedState = .alert
         pendingRecoveryState = nil
         pendingRestStopPrompt = false
+        pendingSuggestionOrigin = nil
         isRunning = false
         status = .idle
         restStopProactiveTask?.cancel()
@@ -236,18 +245,28 @@ final class AIViewModel: ObservableObject {
         if pendingRestStopPrompt {
             pendingRestStopPrompt = false
             if isAffirmative(userText) {
-                await handleRestStopRequest()
+                await handleRestStopRequest(origin: .drowsyConfirmed)
+                return
+            }
+            if isNegative(userText) {
+                await declineRestStopPrompt()
                 return
             }
         }
         
-        if restStopViewModel.suggestedStop != nil, isAffirmative(userText) {
-            await confirmRestStop()
-            return
+        if restStopViewModel.suggestedStop != nil {
+            if isAffirmative(userText) {
+                await confirmRestStop()
+                return
+            }
+            if isNegative(userText) {
+                await declineRestStopCard()
+                return
+            }
         }
         
         if isRestStopRequest(userText) {
-            await handleRestStopRequest()
+            await handleRestStopRequest(origin: .voiceRequest)
             return
         }
         
@@ -256,11 +275,29 @@ final class AIViewModel: ObservableObject {
     
     private func confirmRestStop() async {
         guard let candidate = restStopViewModel.confirm() else { return }
+        pendingSuggestionOrigin = nil
         speechInput.pause()
         status = .speaking
-        speakIfNotAlarming("Oke, meluncur ke \(candidate.name) ya.")
-        try? await Task.sleep(for: .seconds(2))
+        speakIfNotAlarming("Oke, meluncur ke \(candidate.name) ya. Jangan lupa balik ke app ini lagi.")
+        try? await Task.sleep(for: .seconds(3))
         restStopViewModel.openInMaps(candidate)
+    }
+    
+    private func declineRestStopPrompt() async {
+        speechInput.pause()
+        status = .speaking
+        speakIfNotAlarming("Oke, lanjut aja ya.")
+    }
+
+    private func declineRestStopCard() async {
+        let origin = pendingSuggestionOrigin
+        restStopViewModel.dismiss()
+        pendingSuggestionOrigin = nil
+        speechInput.pause()
+        status = .speaking
+        speakIfNotAlarming(origin == .microsleep
+            ? "Oke, tapi tolong beneran hati-hati ya, tadi itu bahaya banget."
+            : "Oke deh.")
     }
     
     private func deliverCue(_ text: String) async {
@@ -272,14 +309,15 @@ final class AIViewModel: ObservableObject {
         appendHistory(ChatTurn(role: .model, text: reply))
     }
     
-    private func handleRestStopRequest() async {
-        await searchAndPresentRestStop { candidate in
+    private func handleRestStopRequest(origin: RestStopSuggestionOrigin = .voiceRequest) async {
+        await searchAndPresentRestStop(origin: origin) { candidate in
             let distanceKm = candidate.distance / 1000
             return "Ada \(candidate.name), sekitar \(String(format: "%.1f", distanceKm)) km lagi. Mau ke situ?"
         }
     }
 
     private func searchAndPresentRestStop(
+        origin: RestStopSuggestionOrigin,
         notFoundMessage: String = "Belum ketemu tempat istirahat di sekitar sini nih.",
         foundMessage: (RestStopCandidate) -> String
     ) async {
@@ -294,6 +332,7 @@ final class AIViewModel: ObservableObject {
         }
 
         restStopViewModel.present(nearest)
+        pendingSuggestionOrigin = origin
         status = .speaking
         speakIfNotAlarming(foundMessage(nearest))
     }
@@ -316,6 +355,7 @@ final class AIViewModel: ObservableObject {
         
         speechInput.pause()
         restStopViewModel.present(nearest)
+        pendingSuggestionOrigin = .proactive
         let distanceKm = nearest.distance / 1000
         status = .speaking
         speakIfNotAlarming("Eh, ada \(nearest.name) sekitar \(String(format: "%.1f", distanceKm)) km lagi nih, mau mampir sebentar?")
@@ -373,6 +413,7 @@ final class AIViewModel: ObservableObject {
     
     private func presentMicrosleepRestStop() async {
         await searchAndPresentRestStop(
+            origin: .microsleep,
             notFoundMessage: "Hei, barusan kamu microsleep, tapi belum ketemu tempat istirahat terdekat. Coba pelan-pelan dan cari tempat aman buat berhenti ya.",
             foundMessage: { candidate in
                 let distanceKm = candidate.distance / 1000
