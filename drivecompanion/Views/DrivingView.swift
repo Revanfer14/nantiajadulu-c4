@@ -12,12 +12,15 @@ struct DrivingView: View {
     @StateObject private var drowsinessMonitor: DrowsinessMonitor
     @StateObject private var camera: CameraViewModel
     @StateObject private var viewModel: AIViewModel
+    @StateObject private var restStopViewModel: RestStopViewModel
     
     init() {
         let monitor = DrowsinessMonitor()
+        let restStop = RestStopViewModel()
         _drowsinessMonitor = StateObject(wrappedValue: monitor)
         _camera = StateObject(wrappedValue: CameraViewModel(monitor: monitor))
-        _viewModel = StateObject(wrappedValue: AIViewModel(drowsinessMonitor: monitor))
+        _restStopViewModel = StateObject(wrappedValue: restStop)
+        _viewModel = StateObject(wrappedValue: AIViewModel(drowsinessMonitor: monitor, restStopViewModel: restStop))
     }
     
     var body: some View {
@@ -90,6 +93,21 @@ struct DrivingView: View {
             }
         #endif
         }
+        .overlay(alignment: .bottom) {
+            if let candidate = restStopViewModel.suggestedStop {
+                RestStopCard(
+                    candidate: candidate,
+                    onAccept: {
+                        if let confirmed = restStopViewModel.confirm() {
+                            restStopViewModel.openInMaps(confirmed)
+                        }
+                    },
+                    onDismiss: { restStopViewModel.dismiss() })
+                .padding(.bottom, 24)
+                .transition(.move(edge: .bottom).combined(with: .opacity))
+            }
+        }
+        .animation(.spring(response: 0.4, dampingFraction: 0.85), value: restStopViewModel.suggestedStop?.id)
     }
     
 #if DEBUG
