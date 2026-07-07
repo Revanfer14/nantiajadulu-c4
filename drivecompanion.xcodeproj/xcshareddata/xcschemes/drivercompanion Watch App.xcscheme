@@ -15,6 +15,20 @@
             buildForAnalyzing = "YES">
             <BuildableReference
                BuildableIdentifier = "primary"
+               BlueprintIdentifier = "E8FD66222FFA805000416E38"
+               BuildableName = "drivercompanion Watch App.app"
+               BlueprintName = "drivercompanion Watch App"
+               ReferencedContainer = "container:drivecompanion.xcodeproj">
+            </BuildableReference>
+         </BuildActionEntry>
+         <BuildActionEntry
+            buildForTesting = "YES"
+            buildForRunning = "YES"
+            buildForProfiling = "YES"
+            buildForArchiving = "YES"
+            buildForAnalyzing = "YES">
+            <BuildableReference
+               BuildableIdentifier = "primary"
                BlueprintIdentifier = "76ED183F2FF4D33F007C646C"
                BuildableName = "drivecompanion.app"
                BlueprintName = "drivecompanion"
@@ -45,9 +59,9 @@
          runnableDebuggingMode = "0">
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "76ED183F2FF4D33F007C646C"
-            BuildableName = "drivecompanion.app"
-            BlueprintName = "drivecompanion"
+            BlueprintIdentifier = "E8FD66222FFA805000416E38"
+            BuildableName = "drivercompanion Watch App.app"
+            BlueprintName = "drivercompanion Watch App"
             ReferencedContainer = "container:drivecompanion.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
@@ -62,9 +76,9 @@
          runnableDebuggingMode = "0">
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "76ED183F2FF4D33F007C646C"
-            BuildableName = "drivecompanion.app"
-            BlueprintName = "drivecompanion"
+            BlueprintIdentifier = "E8FD66222FFA805000416E38"
+            BuildableName = "drivercompanion Watch App.app"
+            BlueprintName = "drivercompanion Watch App"
             ReferencedContainer = "container:drivecompanion.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
