@@ -12,5 +12,3 @@ enum DrowsinessState: String {
     case microsleep
     case noFace
 }
-
-// TODO: Add iPhone face using extension to DrowsinessState

@@ -8,7 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		E812F7F02FFBD9F500558D7A /* SharedDrowsinessState.swift in Sources */ = {isa = PBXBuildFile; fileRef = E812F7CA2FFBD9F500558D7A /* SharedDrowsinessState.swift */; };
-		E812F80A2FFBE32E00558D7A /* SharedDrowsinessState.swift in Sources */ = {isa = PBXBuildFile; fileRef = E812F7CA2FFBD9F500558D7A /* SharedDrowsinessState.swift */; };
+		E8326C2C2FFC901C007C9D85 /* SharedDrowsinessState.swift in Sources */ = {isa = PBXBuildFile; fileRef = E812F7CA2FFBD9F500558D7A /* SharedDrowsinessState.swift */; };
 		E8FD662D2FFA805000416E38 /* drivercompanion Watch App.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = E8FD66232FFA805000416E38 /* drivercompanion Watch App.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
 
@@ -222,14 +222,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				E812F80A2FFBE32E00558D7A /* SharedDrowsinessState.swift in Sources */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		E8FD661F2FFA805000416E38 /* Sources */ = {
-			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
+				E8326C2C2FFC901C007C9D85 /* SharedDrowsinessState.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
