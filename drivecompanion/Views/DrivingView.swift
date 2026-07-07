@@ -93,7 +93,7 @@ struct DrivingView: View {
             }
         #endif
         }
-        .overlay(alignment: .bottom) {
+        .overlay(alignment: .top) {
             if let candidate = restStopViewModel.suggestedStop {
                 RestStopCard(
                     candidate: candidate,
@@ -103,8 +103,8 @@ struct DrivingView: View {
                         }
                     },
                     onDismiss: { restStopViewModel.dismiss() })
-                .padding(.bottom, 24)
-                .transition(.move(edge: .bottom).combined(with: .opacity))
+                .padding(.top, 80)
+                .transition(.move(edge: .top).combined(with: .opacity))
             }
         }
         .animation(.spring(response: 0.4, dampingFraction: 0.85), value: restStopViewModel.suggestedStop?.id)

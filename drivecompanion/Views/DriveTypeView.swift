@@ -45,9 +45,9 @@ struct DrivingTypeView: View {
                     .padding(.top, 8)
                     
                     // BAGIAN MASKOT
-                    MascotView(state: state)
-                        .frame(maxHeight: 280)
-                        .padding(.vertical)
+//                    MascotView(state: state)
+//                        .frame(maxHeight: 280)
+//                        .padding(.vertical)
                 }
                 
                 // AREA TENGAH KE BAWAH: Tampilan Balon Kata (ChatView)
