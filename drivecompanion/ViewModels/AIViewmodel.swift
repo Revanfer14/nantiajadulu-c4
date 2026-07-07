@@ -10,6 +10,7 @@ import Network
 import FoundationModels
 import AVFoundation
 import Combine
+internal import _LocationEssentials
 
 enum SessionMode: String, CaseIterable, Identifiable {
     case continuousProactive = "Terus-Menerus"
@@ -75,29 +76,59 @@ final class AIViewModel: ObservableObject {
         Kamu: "Kucing sih gua, gak ribet ngurusnya. Tapi anjing emang lebih setia katanya, lu tim mana?"
         """
     
-    private static let drowsyCue = "(Driver kamu mulai terlihat ngantuk — kedipan melambat dan kepala mulai turun. Tegur santai, tanya kabarnya, dan sarankan istirahat sebentar kalau memang perlu.)"
-    private static let microsleepCue = "(PERINGATAN: driver kamu baru saja microsleep, matanya sempat tertutup beberapa detik saat menyetir. Ini serius — tegur dengan tegas tapi tetap suportif, dan dorong dia untuk berhenti/istirahat sekarang juga.)"
     private static let recoveryNote = "(Driver baru saja pulih dari kondisi mengantuk/microsleep dan sekarang sudah fokus kembali.)"
+    
+    private static let restStopKeywords = ["istirahat", "spbu", "masjid", "rest area", "pom bensin"]
+    
+    private func isRestStopRequest(_ text: String) -> Bool {
+        let lowercased = text.lowercased()
+        return Self.restStopKeywords.contains { lowercased.contains($0) }
+    }
+    
+    private static let affirmativeKeywords = ["ya", "oke", "boleh", "gas", "yuk", "sip", "ayo"]
+    
+    private func isAffirmative(_ text: String) -> Bool {
+        let lowercased = text.lowercased().trimmingCharacters(in: .whitespaces)
+        return Self.affirmativeKeywords.contains { lowercased == $0 || lowercased.hasPrefix($0 + " ") || lowercased.hasPrefix($0 + ",") }
+    }
+    
+    private static let negativeKeywords = ["tidak", "gak", "ga", "nggak", "enggak", "engga", "gausah", "males", "nanti aja", "skip"]
+
+    private func isNegative(_ text: String) -> Bool {
+        let lowercased = text.lowercased().trimmingCharacters(in: .whitespaces)
+        return Self.negativeKeywords.contains { lowercased == $0 || lowercased.hasPrefix($0 + " ") || lowercased.hasPrefix($0 + ",") }
+    }
     
     private let gemini = GeminiService()
     private let speechInput = SpeechInput()
     private let speechOutput = SpeechOutput()
     private let monitor = NWPathMonitor()
     private let drowsinessMonitor: DrowsinessMonitor
+    private let restStopViewModel: RestStopViewModel
+    
     private var isOnline = true
     private var history: [ChatTurn] = []
     private var proactiveTask: Task<Void, Never>?
+    
+    private var restStopProactiveTask: Task<Void, Never>?
+    private var lastProactiveSuggestionKey: String?
+    private var lastProactiveSuggestionAt: Date?
+    private let restStopCheckInterval: TimeInterval = 300 // how often do we check
+    private let proactiveCooldown: TimeInterval = 900 // how long do we wait before suggesting (again)
+    
     private var cancellables = Set<AnyCancellable>()
     
     private var lastAnnouncedState: DrowsinessState = .alert
-    private var pendingDrowsinessCue: String?
+    private var pendingRecoveryState: DrowsinessState?
+    private var pendingRestStopPrompt = false
+    private var pendingSuggestionOrigin: RestStopSuggestionOrigin?
     
     private var isAlarmActive: Bool {
         drowsinessMonitor.state == .drowsy || drowsinessMonitor.state == .microsleep
     }
     
     private let historyLimit = 20
-
+    
     private var proactiveCue: String {
         let cues = [
             "(Waktunya kamu mulai ngobrol duluan. Buka dengan cara yang natural — bisa nanya kabar driver, nyeletuk sesuatu, atau angkat topik ringan baru yang belum pernah dibahas.)",
@@ -108,8 +139,9 @@ final class AIViewModel: ObservableObject {
         return cues.randomElement() ?? cues[0]
     }
     
-    init(drowsinessMonitor: DrowsinessMonitor) {
+    init(drowsinessMonitor: DrowsinessMonitor, restStopViewModel: RestStopViewModel) {
         self.drowsinessMonitor = drowsinessMonitor
+        self.restStopViewModel = restStopViewModel
         
         let queue = DispatchQueue(label: "jaga.connectivity-monitor")
         monitor.pathUpdateHandler = { [weak self] path in
@@ -158,7 +190,8 @@ final class AIViewModel: ObservableObject {
         history = []
         activeModel = ""
         lastAnnouncedState = drowsinessMonitor.state
-        pendingDrowsinessCue = nil
+        pendingRecoveryState = nil
+        pendingRestStopPrompt = false
         isRunning = true
         
         speechInput.start { [weak self] transcript in
@@ -170,9 +203,18 @@ final class AIViewModel: ObservableObject {
         
         if isAlarmActive {
             pauseForAlarm()
-            pendingDrowsinessCue = drowsinessMonitor.state == .microsleep ? Self.microsleepCue : Self.drowsyCue
+            pendingRecoveryState = drowsinessMonitor.state
         } else {
             status = .listening
+        }
+        
+        restStopProactiveTask = Task { [weak self] in
+            guard let self else { return }
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(self.restStopCheckInterval))
+                guard !Task.isCancelled, self.isRunning else { return }
+                await self.checkProactiveRestStop()
+            }
         }
     }
     
@@ -184,20 +226,143 @@ final class AIViewModel: ObservableObject {
         history = []
         activeModel = ""
         lastAnnouncedState = .alert
-        pendingDrowsinessCue = nil
+        pendingRecoveryState = nil
+        pendingRestStopPrompt = false
+        pendingSuggestionOrigin = nil
         isRunning = false
         status = .idle
+        restStopProactiveTask?.cancel()
+        restStopProactiveTask = nil
+        lastProactiveSuggestionKey = nil
+        lastProactiveSuggestionAt = nil
         
         try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
     }
     
     private func sendTurn(_ userText: String) async {
         guard isRunning, !isAlarmActive else { return }
-        appendHistory(ChatTurn(role: .user, text: userText))
+        
+        if pendingRestStopPrompt {
+            pendingRestStopPrompt = false
+            if isAffirmative(userText) {
+                await handleRestStopRequest(origin: .drowsyConfirmed)
+                return
+            }
+            if isNegative(userText) {
+                await declineRestStopPrompt()
+                return
+            }
+        }
+        
+        if restStopViewModel.suggestedStop != nil {
+            if isAffirmative(userText) {
+                await confirmRestStop()
+                return
+            }
+            if isNegative(userText) {
+                await declineRestStopCard()
+                return
+            }
+        }
+        
+        if isRestStopRequest(userText) {
+            await handleRestStopRequest(origin: .voiceRequest)
+            return
+        }
+        
+        await deliverCue(userText)
+    }
+    
+    private func confirmRestStop() async {
+        guard let candidate = restStopViewModel.confirm() else { return }
+        pendingSuggestionOrigin = nil
+        speechInput.pause()
+        status = .speaking
+        speakIfNotAlarming("Oke, meluncur ke \(candidate.name) ya. Jangan lupa balik ke app ini lagi.")
+        try? await Task.sleep(for: .seconds(3))
+        restStopViewModel.openInMaps(candidate)
+    }
+    
+    private func declineRestStopPrompt() async {
+        speechInput.pause()
+        status = .speaking
+        speakIfNotAlarming("Oke, lanjut aja ya.")
+    }
+
+    private func declineRestStopCard() async {
+        let origin = pendingSuggestionOrigin
+        restStopViewModel.dismiss()
+        pendingSuggestionOrigin = nil
+        speechInput.pause()
+        status = .speaking
+        speakIfNotAlarming(origin == .microsleep
+            ? "Oke, tapi tolong beneran hati-hati ya, tadi itu bahaya banget."
+            : "Oke deh.")
+    }
+    
+    private func deliverCue(_ text: String) async {
+        guard isRunning, !isAlarmActive else { return }
+        appendHistory(ChatTurn(role: .user, text: text))
         speechInput.pause()
         status = .thinking
         let reply = await respond()
         appendHistory(ChatTurn(role: .model, text: reply))
+    }
+    
+    private func handleRestStopRequest(origin: RestStopSuggestionOrigin = .voiceRequest) async {
+        await searchAndPresentRestStop(origin: origin) { candidate in
+            let distanceKm = candidate.distance / 1000
+            return "Ada \(candidate.name), sekitar \(String(format: "%.1f", distanceKm)) km lagi. Mau ke situ?"
+        }
+    }
+
+    private func searchAndPresentRestStop(
+        origin: RestStopSuggestionOrigin,
+        notFoundMessage: String = "Belum ketemu tempat istirahat di sekitar sini nih.",
+        foundMessage: (RestStopCandidate) -> String
+    ) async {
+        speechInput.pause()
+        status = .thinking
+
+        let candidates = await restStopViewModel.findCandidates()
+        guard let nearest = candidates.first else {
+            status = .speaking
+            speakIfNotAlarming(notFoundMessage)
+            return
+        }
+
+        restStopViewModel.present(nearest)
+        pendingSuggestionOrigin = origin
+        status = .speaking
+        speakIfNotAlarming(foundMessage(nearest))
+    }
+    
+    private func checkProactiveRestStop() async {
+        guard isRunning, !isAlarmActive, status == .listening, !pendingRestStopPrompt, restStopViewModel.suggestedStop == nil else { return }
+        
+        let candidates = await restStopViewModel.findCandidates()
+        guard let nearest = candidates.first, !isAlarmActive, status == .listening else { return }
+        
+        let key = coordinateKey(for: nearest)
+        if key == lastProactiveSuggestionKey,
+           let lastAt = lastProactiveSuggestionAt,
+           Date().timeIntervalSince(lastAt) < proactiveCooldown {
+            return
+        }
+        
+        lastProactiveSuggestionKey = key
+        lastProactiveSuggestionAt = Date()
+        
+        speechInput.pause()
+        restStopViewModel.present(nearest)
+        pendingSuggestionOrigin = .proactive
+        let distanceKm = nearest.distance / 1000
+        status = .speaking
+        speakIfNotAlarming("Eh, ada \(nearest.name) sekitar \(String(format: "%.1f", distanceKm)) km lagi nih, mau mampir sebentar?")
+    }
+    
+    private func coordinateKey(for candidate: RestStopCandidate) -> String {
+        String(format: "%.4f,%.4f", candidate.coordinate.latitude, candidate.coordinate.longitude)
     }
     
     private func handleDrowsinessChange(_ newState: DrowsinessState) {
@@ -209,26 +374,51 @@ final class AIViewModel: ObservableObject {
         
         if alarmActive {
             pauseForAlarm()
-            let isPendingMicrosleep = pendingDrowsinessCue == Self.microsleepCue
+            let isPendingMicrosleep =  pendingRecoveryState == .microsleep
             if newState == .microsleep || !isPendingMicrosleep {
-                pendingDrowsinessCue = newState == .microsleep ? Self.microsleepCue : Self.drowsyCue
+                pendingRecoveryState = newState
             }
             return
         }
         
         if wasAlarmActive {
-            if let cue = pendingDrowsinessCue {
-                pendingDrowsinessCue = nil
-                Task { await sendTurn(cue) }
+            if let state = pendingRecoveryState {
+                pendingRecoveryState = nil
+                Task { await handleDrowsinessRecovery(for: state) }
             } else {
                 resumeAfterAlarm()
             }
             return
         }
         
-        guard let cue = pendingDrowsinessCue else { return }
-        pendingDrowsinessCue = nil
-        Task { await sendTurn(cue) }
+        guard let state = pendingRecoveryState else { return }
+        pendingRecoveryState = nil
+        Task { await handleDrowsinessRecovery(for: state) }
+    }
+    
+    private func handleDrowsinessRecovery(for state: DrowsinessState) async {
+        if state == .microsleep {
+            await presentMicrosleepRestStop()
+        } else {
+            await askAboutRestStop()
+        }
+    }
+
+    private func askAboutRestStop() async {
+        speechInput.pause()
+        status = .speaking
+        speakIfNotAlarming("Hei, kamu mulai keliatan ngantuk nih. Mau aku carikan tempat istirahat terdekat?")
+        pendingRestStopPrompt = true
+    }
+    
+    private func presentMicrosleepRestStop() async {
+        await searchAndPresentRestStop(
+            origin: .microsleep,
+            notFoundMessage: "Hei, barusan kamu microsleep, tapi belum ketemu tempat istirahat terdekat. Coba pelan-pelan dan cari tempat aman buat berhenti ya.",
+            foundMessage: { candidate in
+                let distanceKm = candidate.distance / 1000
+                return "Tadi kamu sempet microsleep, itu bahaya banget. Mau mati kamu? Ada \(candidate.name) sekitar \(String(format: "%.1f", distanceKm)) km lagi, yuk mampir istirahat dulu."
+            })
     }
     
     private func pauseForAlarm() {
@@ -253,7 +443,7 @@ final class AIViewModel: ObservableObject {
         proactiveTask = Task { [weak self] in
             try? await Task.sleep(for: .seconds(interval))
             guard let self, !Task.isCancelled else { return }
-            await self.sendTurn(self.proactiveCue)
+            await self.deliverCue(self.proactiveCue)
         }
     }
     
