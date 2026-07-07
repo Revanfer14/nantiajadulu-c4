@@ -20,11 +20,12 @@ struct DrivingView: View {
                 
                 Text(connectivity.state.watchMascotText)
             }
+            .frame(width: 200, height: 200)
             .padding()
         }
     }
 }
     
-//#Preview {
-//    DrivingView(state: connectivity.state)
-//}
+#Preview {
+    DrivingView()
+}
