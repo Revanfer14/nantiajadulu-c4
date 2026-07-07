@@ -55,8 +55,20 @@ extension WatchConnectivityManager: WCSessionDelegate {
             }
             
             if let rawValue = message["drowsinessState"] as? String,
-               let state = DrowsinessState(rawValue: rawValue) {
+               let state = DrowsinessState(rawValue: rawValue)
+            {
+                let previousState = self.state
                 self.state = state
+                
+                guard previousState != state else { return }
+                
+                switch state {
+                case .drowsy:
+                    HapticManager.shared.play(.drowsy)
+                case .microsleep:
+                    HapticManager.shared.play(.microsleep)
+                default: break
+                }
             }
         }
     }
