@@ -12,7 +12,7 @@ struct RestStopCard: View {
     let candidate: RestStopCandidate
     let onAccept: () -> Void
     let onDismiss: () -> Void
-
+    
     private var distanceText: String {
         candidate.distance < 1000
         ? "\(Int(candidate.distance)) m"
@@ -23,13 +23,13 @@ struct RestStopCard: View {
         guard let minutes = candidate.estimatedMinutes else { return nil }
         let hours = minutes / 60
         let remainingMinutes = minutes % 60
-
+        
         if hours == 0 {
-            return "\(minutes) min"
+            return "\(minutes) mnt"
         } else if remainingMinutes == 0 {
-            return "\(hours)h"
+            return "\(hours)j"
         } else {
-            return "\(hours)h \(remainingMinutes) min"
+            return "\(hours)j \(remainingMinutes) mnt"
         }
     }
     
@@ -40,39 +40,52 @@ struct RestStopCard: View {
         return "\(candidate.category) · \(distanceText) · \(estimatedArrivalText)"
     }
     
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(candidate.name)
-                        .font(AppFont.cardTitle)
-                        .fontWeight(.bold)
-                        .foregroundStyle(AppColor.textPrimary)
-                    Text(subtitleText)
-                        .font(AppFont.body)
-                        .foregroundStyle(AppColor.textSecondary)
-                }
-
-                Spacer()
-
-                Button(action: onDismiss) {
-                    Image(systemName: "xmark")
-                        .font(.footnote)
-                        .foregroundStyle(AppColor.textSecondary)
-                        .padding(8)
-                        .background(.ultraThinMaterial, in: Circle())
-                }
-            }
-
-            PrimaryButton("Mampir", iconName: "arrow.triangle.turn.up.right.circle") {
-                onAccept()
-            }
+    private var iconName: String {
+        switch candidate.category {
+        case "SPBU": return "fuelpump.fill"
+        case "Restoran": return "fork.knife"
+        case "Kafe": return "cup.and.saucer.fill"
+        case "Parkir": return "parkingsign"
+        case "Pengisian EV": return "bolt.car.fill"
+        case "Rest Area": return "bed.double.fill"
+        case "Masjid": return "building.2.fill"
+        default: return "mappin.and.ellipse"
         }
-        .padding(16)
-        .background(AppColor.background)
-        .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
-        .shadow(radius: 8)
+    }
+    
+    var body: some View {
+        List {
+            Button(action: onAccept) {
+                RestStopRow(candidate: candidate)
+            }
+            .buttonStyle(.plain)
+            .listRowInsets(EdgeInsets(top: 12, leading: 16, bottom: 12, trailing: 16))
+            .listRowBackground(Color(
+                red: 232/255,
+                green: 244/255,
+                blue: 251/255
+            ))
+            .listRowSeparator(.hidden)
+        }
+        .listStyle(.plain)
+        .scrollDisabled(true)
+        .scrollIndicators(.hidden)
+        .scrollContentBackground(.hidden)
+        .frame(height: 76)
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .stroke(Color.gray.opacity(0.5), lineWidth: 1)
+        )
         .padding(.horizontal, 16)
+        .simultaneousGesture(
+            DragGesture()
+                .onEnded { value in
+                    if value.translation.height < -40 {
+                        onDismiss()
+                    }
+                }
+        )
     }
 }
 
@@ -80,11 +93,11 @@ struct RestStopCard: View {
     RestStopCard(
         candidate: RestStopCandidate(
             mapItem: MKMapItem(placemark: MKPlacemark(coordinate: CLLocationCoordinate2D(latitude: -6.2, longitude: 106.8))),
-            name: "SPBU Pertamina 123.456",
+            name: "Rest Area KM 72",
             category: "SPBU",
             coordinate: CLLocationCoordinate2D(latitude: -6.2, longitude: 106.8),
-            distance: 3200,
-            estimatedMinutes: 4),
+            distance: 6000,
+            estimatedMinutes: 16),
         onAccept: {},
         onDismiss: {})
 }

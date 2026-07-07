@@ -106,8 +106,8 @@ nonisolated struct RestStopFinder {
         case .restaurant: return "Restoran"
         case .cafe: return "Kafe"
         case .parking: return "Parkir"
-        case .evCharger: return "Pengisian EV"
-        default: return "Tempat Istirahat"
+        case .evCharger: return "SPKLU"
+        default: return "Lainnya"
         }
     }
 }
