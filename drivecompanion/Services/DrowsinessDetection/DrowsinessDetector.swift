@@ -20,7 +20,7 @@ final class DrowsinessDetector {
     // PERCLOS (from EAR) - continuous 30 seconds EAR history buffer to detect drowsiness
     private var earHistory: [(timestamp: Date, ear: Double)] = []
     private let perclosWindow: TimeInterval = 30
-    private let earDrowsyThreshold: Double = 0.75
+    private let earDrowsyThreshold: Double = 0.7
     private let perclosFadingThreshold: Double = 0.15
     
     // CLOSDUR - for catching an actual microsleep as it happens
@@ -61,7 +61,7 @@ final class DrowsinessDetector {
         let state: DrowsinessState
         if isMicrosleep { // lv 3
             state = .microsleep
-        } else if (headDropped && perclos > perclosFadingThreshold * 0.5) || yawn { // lv 1
+        } else if (headDropped && perclos > perclosFadingThreshold * 0.5) || (yawn && perclos > perclosFadingThreshold * 0.5) { // lv 1
             state = .drowsy
         } else if perclos > perclosFadingThreshold && !alert { // lv 2
             state = .drowsy
