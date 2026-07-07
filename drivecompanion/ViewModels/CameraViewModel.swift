@@ -26,7 +26,7 @@ final class CameraViewModel: ObservableObject {
     @Published var closedDuration: TimeInterval = 0
     @Published var isMicrosleep: Bool = false
     @Published var drowsinessState: DrowsinessState = .alert
-    
+ 
     private var previousSentState: DrowsinessState?
 
     init(monitor: DrowsinessMonitor) {
@@ -55,7 +55,7 @@ final class CameraViewModel: ObservableObject {
             self.drowsinessState = snapshot.state
             self.updateAlarm(for: snapshot.state)
             self.drowsinessMonitor.update(state: snapshot.state, perclos: snapshot.perclos, closedDuration: snapshot.closedDuration)
-            
+  
             // Send state only if it's different than the previous one
             if self.previousSentState != snapshot.state {
                 WatchConnectivityManager.shared.sendDrowsinessState(snapshot.state)
@@ -72,9 +72,10 @@ final class CameraViewModel: ObservableObject {
             self?.closedDuration = 0
             self?.drowsinessState = .noFace
             self?.drowsinessMonitor.update(state: .noFace, perclos: 0, closedDuration: 0)
-            
+    
             WatchConnectivityManager.shared.sendDrowsinessState(.noFace)
             self?.previousSentState = .noFace
+
         }
     }
     
