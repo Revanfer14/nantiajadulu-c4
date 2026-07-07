@@ -8,6 +8,7 @@
 import Foundation
 import WatchConnectivity
 import Combine
+import WatchKit
 
 final class WatchConnectivityManager: NSObject, ObservableObject {
     static let shared = WatchConnectivityManager()
@@ -23,6 +24,25 @@ final class WatchConnectivityManager: NSObject, ObservableObject {
         
         WCSession.default.delegate = self
         WCSession.default.activate()
+    }
+}
+
+// MARK: Alert haptics on Watch
+extension WatchConnectivityManager {
+    
+    // MARK: Drowsy
+    private func playDrowsyHaptics() {
+        WKInterfaceDevice.current().play(.directionUp)
+    }
+    
+    // MARK: Microsleep
+    // TODO: Make a function to detect gesture to stop the microsleep haptics -> ignore the camera state? :/ atau buat yang drowsy aja?
+    private func playMicrosleepHaptics() {
+        for i in 0..<10 {
+            DispatchQueue.main.asyncAfter(deadline: .now() + Double(i) * 0.6) {
+                WKInterfaceDevice.current().play(.notification)
+            }
+        }
     }
 }
 
@@ -55,8 +75,20 @@ extension WatchConnectivityManager: WCSessionDelegate {
             }
             
             if let rawValue = message["drowsinessState"] as? String,
-               let state = DrowsinessState(rawValue: rawValue) {
+               let state = DrowsinessState(rawValue: rawValue)
+            {
+                let previousState = self.state
                 self.state = state
+                
+                guard previousState != state else { return }
+                
+                switch state {
+                case .drowsy:
+                    self.playDrowsyHaptics()
+                case .microsleep:
+                    self.playMicrosleepHaptics()
+                default: break
+                }
             }
         }
     }
