@@ -10,6 +10,7 @@ import Network
 import FoundationModels
 import AVFoundation
 import Combine
+internal import _LocationEssentials
 
 enum SessionMode: String, CaseIterable, Identifiable {
     case continuousProactive = "Terus-Menerus"
@@ -79,14 +80,37 @@ final class AIViewModel: ObservableObject {
     private static let microsleepCue = "(PERINGATAN: driver kamu baru saja microsleep, matanya sempat tertutup beberapa detik saat menyetir. Ini serius — tegur dengan tegas tapi tetap suportif, dan dorong dia untuk berhenti/istirahat sekarang juga.)"
     private static let recoveryNote = "(Driver baru saja pulih dari kondisi mengantuk/microsleep dan sekarang sudah fokus kembali.)"
     
+    private static let restStopKeywords = ["istirahat", "spbu", "masjid", "rest area", "pom bensin"]
+    
+    private func isRestStopRequest(_ text: String) -> Bool {
+        let lowercased = text.lowercased()
+        return Self.restStopKeywords.contains { lowercased.contains($0) }
+    }
+    
+    private static let affirmativeKeywords = ["ya", "oke", "boleh", "gas", "yuk", "sip", "ayo"]
+    
+    private func isAffirmative(_ text: String) -> Bool {
+        let lowercased = text.lowercased().trimmingCharacters(in: .whitespaces)
+        return Self.affirmativeKeywords.contains { lowercased == $0 || lowercased.hasPrefix($0 + " ") || lowercased.hasPrefix($0 + ",") }
+    }
+    
     private let gemini = GeminiService()
     private let speechInput = SpeechInput()
     private let speechOutput = SpeechOutput()
     private let monitor = NWPathMonitor()
     private let drowsinessMonitor: DrowsinessMonitor
+    private let restStopViewModel: RestStopViewModel
+    
     private var isOnline = true
     private var history: [ChatTurn] = []
     private var proactiveTask: Task<Void, Never>?
+    
+    private var restStopProactiveTask: Task<Void, Never>?
+    private var lastProactiveSuggestionKey: String?
+    private var lastProactiveSuggestionAt: Date?
+    private let restStopCheckInterval: TimeInterval = 300 // how often do we check
+    private let proactiveCooldown: TimeInterval = 900 // how long do we wait before suggesting (again)
+    
     private var cancellables = Set<AnyCancellable>()
     
     private var lastAnnouncedState: DrowsinessState = .alert
@@ -97,7 +121,7 @@ final class AIViewModel: ObservableObject {
     }
     
     private let historyLimit = 20
-
+    
     private var proactiveCue: String {
         let cues = [
             "(Waktunya kamu mulai ngobrol duluan. Buka dengan cara yang natural — bisa nanya kabar driver, nyeletuk sesuatu, atau angkat topik ringan baru yang belum pernah dibahas.)",
@@ -108,8 +132,9 @@ final class AIViewModel: ObservableObject {
         return cues.randomElement() ?? cues[0]
     }
     
-    init(drowsinessMonitor: DrowsinessMonitor) {
+    init(drowsinessMonitor: DrowsinessMonitor, restStopViewModel: RestStopViewModel) {
         self.drowsinessMonitor = drowsinessMonitor
+        self.restStopViewModel = restStopViewModel
         
         let queue = DispatchQueue(label: "jaga.connectivity-monitor")
         monitor.pathUpdateHandler = { [weak self] path in
@@ -174,6 +199,15 @@ final class AIViewModel: ObservableObject {
         } else {
             status = .listening
         }
+        
+        restStopProactiveTask = Task { [weak self] in
+            guard let self else { return }
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(self.restStopCheckInterval))
+                guard !Task.isCancelled, self.isRunning else { return }
+                await self.checkProactiveRestStop()
+            }
+        }
     }
     
     func stop() {
@@ -187,17 +221,91 @@ final class AIViewModel: ObservableObject {
         pendingDrowsinessCue = nil
         isRunning = false
         status = .idle
+        restStopProactiveTask?.cancel()
+        restStopProactiveTask = nil
+        lastProactiveSuggestionKey = nil
+        lastProactiveSuggestionAt = nil
         
         try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
     }
     
     private func sendTurn(_ userText: String) async {
         guard isRunning, !isAlarmActive else { return }
-        appendHistory(ChatTurn(role: .user, text: userText))
+        
+        if restStopViewModel.suggestedStop != nil, isAffirmative(userText) {
+            await confirmRestStop()
+            return
+        }
+        
+        if isRestStopRequest(userText) {
+            await handleRestStopRequest()
+            return
+        }
+        
+        await deliverCue(userText)
+    }
+    
+    private func confirmRestStop() async {
+        guard let candidate = restStopViewModel.confirm() else { return }
+        speechInput.pause()
+        status = .speaking
+        speakIfNotAlarming("Oke, meluncur ke \(candidate.name) ya.")
+        try? await Task.sleep(for: .seconds(2))
+        restStopViewModel.openInMaps(candidate)
+    }
+    
+    private func deliverCue(_ text: String) async {
+        guard isRunning, !isAlarmActive else { return }
+        appendHistory(ChatTurn(role: .user, text: text))
         speechInput.pause()
         status = .thinking
         let reply = await respond()
         appendHistory(ChatTurn(role: .model, text: reply))
+    }
+    
+    private func handleRestStopRequest() async {
+        speechInput.pause()
+        status = .thinking
+        
+        let candidates = await restStopViewModel.findCandidates()
+        guard let nearest = candidates.first else {
+            status = .speaking
+            speakIfNotAlarming("Belum ketemu tempat istirahat di sekitar sini nih.")
+            return
+        }
+        
+        restStopViewModel.present(nearest)
+        let distanceKm = nearest.distance / 1000
+        let line = "Ada \(nearest.name), sekitar \(String(format: "%.1f", distanceKm)) km lagi. Mau ke situ?"
+        status = .speaking
+        speakIfNotAlarming(line)
+    }
+    
+    private func checkProactiveRestStop() async {
+        guard isRunning, !isAlarmActive, status == .listening, restStopViewModel.suggestedStop == nil else { return }
+        
+        let candidates = await restStopViewModel.findCandidates()
+        guard let nearest = candidates.first, !isAlarmActive, status == .listening else { return }
+        
+        let key = coordinateKey(for: nearest)
+        if key == lastProactiveSuggestionKey,
+           let lastAt = lastProactiveSuggestionAt,
+           Date().timeIntervalSince(lastAt) < proactiveCooldown {
+            return
+        }
+        
+        lastProactiveSuggestionKey = key
+        lastProactiveSuggestionAt = Date()
+        
+        speechInput.pause()
+        restStopViewModel.present(nearest)
+        let distanceKm = nearest.distance / 1000
+        status = .speaking
+        speakIfNotAlarming("Eh, ada \(nearest.name) sekitar \(String(format: "%.1f", distanceKm)) km lagi nih, mau mampir sebentar?")
+    }
+    
+    private func coordinateKey(for candidate: RestStopCandidate) -> String {
+        String(format: "%.4f,%.4f", candidate.coordinate.latitude, candidate.coordinate.longitude)
     }
     
     private func handleDrowsinessChange(_ newState: DrowsinessState) {
@@ -219,7 +327,7 @@ final class AIViewModel: ObservableObject {
         if wasAlarmActive {
             if let cue = pendingDrowsinessCue {
                 pendingDrowsinessCue = nil
-                Task { await sendTurn(cue) }
+                Task { await deliverCue(cue) }
             } else {
                 resumeAfterAlarm()
             }
@@ -228,7 +336,7 @@ final class AIViewModel: ObservableObject {
         
         guard let cue = pendingDrowsinessCue else { return }
         pendingDrowsinessCue = nil
-        Task { await sendTurn(cue) }
+        Task { await deliverCue(cue) }
     }
     
     private func pauseForAlarm() {
@@ -253,7 +361,7 @@ final class AIViewModel: ObservableObject {
         proactiveTask = Task { [weak self] in
             try? await Task.sleep(for: .seconds(interval))
             guard let self, !Task.isCancelled else { return }
-            await self.sendTurn(self.proactiveCue)
+            await self.deliverCue(self.proactiveCue)
         }
     }
     
