@@ -13,17 +13,44 @@ struct RestStopCard: View {
     let onAccept: () -> Void
     let onDismiss: () -> Void
 
+    private var distanceText: String {
+        candidate.distance < 1000
+        ? "\(Int(candidate.distance)) m"
+        : String(format: "%.1f km", candidate.distance / 1000)
+    }
+    
+    private var estimatedArrivalText: String? {
+        guard let minutes = candidate.estimatedMinutes else { return nil }
+        let hours = minutes / 60
+        let remainingMinutes = minutes % 60
+
+        if hours == 0 {
+            return "\(minutes) min"
+        } else if remainingMinutes == 0 {
+            return "\(hours)h"
+        } else {
+            return "\(hours)h \(remainingMinutes) min"
+        }
+    }
+    
+    private var subtitleText: String {
+        guard let estimatedArrivalText else {
+            return "\(candidate.category) · \(distanceText)"
+        }
+        return "\(candidate.category) · \(distanceText) · \(estimatedArrivalText)"
+    }
+    
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(candidate.category)
-                        .font(AppFont.body)
-                        .foregroundStyle(AppColor.textSecondary)
                     Text(candidate.name)
                         .font(AppFont.cardTitle)
                         .fontWeight(.bold)
                         .foregroundStyle(AppColor.textPrimary)
+                    Text(subtitleText)
+                        .font(AppFont.body)
+                        .foregroundStyle(AppColor.textSecondary)
                 }
 
                 Spacer()
@@ -37,7 +64,7 @@ struct RestStopCard: View {
                 }
             }
 
-            PrimaryButton("Mampir, \(String(format: "%.1f", candidate.distance / 1000)) km lagi", iconName: "arrow.triangle.turn.up.right.circle") {
+            PrimaryButton("Mampir", iconName: "arrow.triangle.turn.up.right.circle") {
                 onAccept()
             }
         }
@@ -56,7 +83,8 @@ struct RestStopCard: View {
             name: "SPBU Pertamina 123.456",
             category: "SPBU",
             coordinate: CLLocationCoordinate2D(latitude: -6.2, longitude: 106.8),
-            distance: 3200),
+            distance: 3200,
+            estimatedMinutes: 4),
         onAccept: {},
         onDismiss: {})
 }
