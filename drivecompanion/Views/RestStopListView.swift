@@ -56,6 +56,7 @@ struct RestStopListView: View {
                 }
             }
         }
+        .background(.white)
         .task {
             let found = await restStopViewModel.findCandidates()
             candidates = found
