@@ -9,64 +9,47 @@ import SwiftUI
 
 struct ChatBubble: View {
     let turn: ChatTurn
-    
-    var isUser: Bool {
+
+    private var isUser: Bool {
         turn.role == .user
     }
-    
+
     var body: some View {
-        
-     
-            
-            HStack {
-                if isUser { Spacer() } // Dorong balon user ke kanan
-                
-                Text(turn.text)
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 10)
-                    .background(isUser ? Color.blue : Color(.systemGray5)) // Biru untuk user, abu untuk AI
-                    .foregroundColor(isUser ? .white : .primary)
-                    .clipShape(RoundedCorner(radius: 18, corners: isUser ? [.topLeft, .topRight, .bottomLeft] : [.topLeft, .topRight, .bottomRight]))
-                
-                if !isUser { Spacer() } // Dorong balon AI ke kiri
-            }
-            .padding(isUser ? .leading : .trailing, 60) // Beri jarak agar balon tidak terlalu lebar
-            .padding(.vertical, 4)
-        
-     
-        
-    }
-}
+        HStack {
+            if isUser { Spacer(minLength: 60) }
 
-// Helper untuk membuat sudut melengkung spesifik
-struct RoundedCorner: Shape {
-    var radius: CGFloat = .infinity
-    var corners: UIRectCorner = .allCorners
+            Text(turn.text)
+                .font(.system(size: 15))
+                .multilineTextAlignment(isUser ? .trailing : .leading)
+                .foregroundStyle(
+                    isUser
+                        ? Color(red: 60/255.0, green: 60/255.0, blue: 67/255.0)
+                        : AppColor.textPrimary
+                )
+                .padding(.horizontal, 18)
+                .padding(.vertical, 16)
+                .background(
+                    isUser
+                        ? Color(red: 244/255.0, green: 245/255.0, blue: 247/255.0)
+                        : Color(red: 232/255.0, green: 244/255.0, blue: 251/255.0)
+                )
+                .clipShape(
+                    isUser
+                        ? UnevenRoundedRectangle(topLeadingRadius: 20, bottomLeadingRadius: 20, bottomTrailingRadius: 6, topTrailingRadius: 20)
+                        : UnevenRoundedRectangle(topLeadingRadius: 20, bottomLeadingRadius: 6, bottomTrailingRadius: 20, topTrailingRadius: 20)
+                )
 
-    func path(in rect: CGRect) -> Path {
-        let path = UIBezierPath(roundedRect: rect, byRoundingCorners: corners, cornerRadii: CGSize(width: radius, height: radius))
-        return Path(path.cgPath)
+            if !isUser { Spacer(minLength: 60) }
+        }
+        .padding(.vertical, 4)
     }
 }
 
 #Preview("Simulasi Obrolan") {
     ScrollView {
         VStack(spacing: 12) {
-            // Tampilan Driver (Kanan, Biru)
-            ChatBubble(
-                turn: ChatTurn(
-                    role: .user,
-                    text: "Capek banget gua hari ini, macet banget dari tadi pas pulang kuliah."
-                )
-            )
-            
-            // Tampilan AI (Kiri, Abu-abu)
-            ChatBubble(
-                turn: ChatTurn(
-                    role: .model,
-                    text: "Anjir sama, dari tadi gua liat maps merah semua. Lu udah dari jam berapa di jalan?"
-                )
-            )
+            ChatBubble(turn: ChatTurn(role: .user, text: "Capek banget gua hari ini, macet banget dari tadi pas pulang kuliah."))
+            ChatBubble(turn: ChatTurn(role: .model, text: "Anjir sama, dari tadi gua liat maps merah semua. Lu udah dari jam berapa di jalan?"))
         }
         .padding()
     }
