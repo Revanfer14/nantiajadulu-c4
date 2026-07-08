@@ -7,9 +7,10 @@
 
 import SwiftUI
 
-struct DrivingTypeView: View {
+struct DriveView: View {
     @ObservedObject var viewModel: AIViewModel
     let state: DrowsinessState
+    @Environment(\.dismiss) private var dismiss
 
     var body: some View {
         ZStack {
@@ -62,6 +63,14 @@ struct DrivingTypeView: View {
 
                 Spacer()
 
+                Picker("Mode", selection: $viewModel.selectedMode) {
+                    ForEach(SessionMode.allCases) { mode in
+                        Text(mode.rawValue).tag(mode)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .padding(.horizontal, 20)
+
                 ScrollViewReader { proxy in
                     ScrollView {
                         VStack(spacing: 10) {
@@ -86,6 +95,7 @@ struct DrivingTypeView: View {
                 HStack(spacing: 12) {
                     Button {
                         viewModel.stop()
+                        dismiss()
                     } label: {
                         Text("Berhenti Mengemudi")
                             .font(.headline)
@@ -107,9 +117,31 @@ struct DrivingTypeView: View {
                         )
                 }
                 .padding(.horizontal, 20)
-                .padding(.vertical, 16)
+                .padding(.top, 20)
+                .padding(.bottom, 16)
                 .background(state == .microsleep ? Color.red : Color.clear)
             }
         }
     }
+}
+
+#Preview("Normal") {
+    let vm = AIViewModel(drowsinessMonitor: DrowsinessMonitor(), restStopViewModel: RestStopViewModel())
+    vm.history = [
+        ChatTurn(role: .model, text: "Eh, macetnya lumayan tadi. Lu udah di jalan dari jam berapa?"),
+        ChatTurn(role: .user, text: "Dari jam 7 pagi, baru nyampe sekarang. Capek banget."),
+        ChatTurn(role: .model, text: "Lumayan lama tuh. Udah makan belum? Jangan sampai laper pas nyetir.")
+    ]
+    vm.status = .listening
+    return DriveView(viewModel: vm, state: .alert)
+}
+
+#Preview("Microsleep") {
+    let vm = AIViewModel(drowsinessMonitor: DrowsinessMonitor(), restStopViewModel: RestStopViewModel())
+    vm.history = [
+        ChatTurn(role: .model, text: "Hei, tadi kamu sempet microsleep. Itu bahaya banget, mending cari tempat istirahat sekarang."),
+        ChatTurn(role: .user, text: "Iya, gua juga kaget. Untung masih aman.")
+    ]
+    vm.status = .listening
+    return DriveView(viewModel: vm, state: .microsleep)
 }

@@ -38,7 +38,7 @@ struct HomeView: View {
             .padding(.horizontal, 20)
         }
         .fullScreenCover(isPresented: $isDrivingActive) {
-            DrivingView()
+            DriveSessionView()
         }
     }
 }
