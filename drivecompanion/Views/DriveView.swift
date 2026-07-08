@@ -90,7 +90,7 @@ struct DriveView: View {
                         .padding(.horizontal, 20)
                         .padding(.vertical, 10)
                     }
-                    .frame(height: 260)
+                    .frame(height: 200)
                     .onChange(of: viewModel.history.count) {
                         if viewModel.history.count > 0 {
                             withAnimation {
@@ -159,7 +159,7 @@ struct DriveView: View {
         }
         .overlay(alignment: .topLeading) {
             DrowsinessStatusPill(state: state)
-                .padding(.top, 8)
+                .padding(.top, 25)
                 .padding(.leading, 16)
         }
         .animation(.spring(response: 0.4, dampingFraction: 0.85), value: restStopViewModel.suggestedStop?.id)

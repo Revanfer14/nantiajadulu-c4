@@ -41,7 +41,7 @@ enum CompanionStatus: String {
 final class AIViewModel: ObservableObject {
     @Published var isRunning = false
     @Published var status: CompanionStatus = .idle
-    @Published var selectedMode: SessionMode = .continuousProactive
+    @Published var selectedMode: SessionMode = .driverInitiated
     @Published var permissionDenied = false
     @Published var activeModel: String = ""
     
