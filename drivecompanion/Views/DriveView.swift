@@ -157,6 +157,11 @@ struct DriveView: View {
                 .transition(.move(edge: .top).combined(with: .opacity))
             }
         }
+        .overlay(alignment: .topLeading) {
+            DrowsinessStatusPill(state: state)
+                .padding(.top, 8)
+                .padding(.leading, 16)
+        }
         .animation(.spring(response: 0.4, dampingFraction: 0.85), value: restStopViewModel.suggestedStop?.id)
     }
 
