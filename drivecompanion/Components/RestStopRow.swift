@@ -71,6 +71,8 @@ struct RestStopRow: View {
                     .font(AppFont.body)
                     .fontWeight(.bold)
                     .foregroundStyle(AppColor.textPrimary)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
                 Text(subtitleText)
                     .font(.footnote)
                     .foregroundStyle(AppColor.textSecondary)
