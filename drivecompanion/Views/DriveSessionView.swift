@@ -12,7 +12,9 @@ struct DriveSessionView: View {
     @StateObject private var camera: CameraViewModel
     @StateObject private var viewModel: AIViewModel
     @StateObject private var restStopViewModel: RestStopViewModel
-
+    
+    @State private var isCalibrated = false
+    
     init() {
         let monitor = DrowsinessMonitor()
         let restStop = RestStopViewModel()
@@ -21,11 +23,17 @@ struct DriveSessionView: View {
         _restStopViewModel = StateObject(wrappedValue: restStop)
         _viewModel = StateObject(wrappedValue: AIViewModel(drowsinessMonitor: monitor, restStopViewModel: restStop))
     }
-
+    
     var body: some View {
-        DriveView(viewModel: viewModel, state: drowsinessMonitor.state, restStopViewModel: restStopViewModel, camera: camera)
-            .task {
-                await viewModel.start()
+        if isCalibrated {
+            DriveView(viewModel: viewModel, state: drowsinessMonitor.state, restStopViewModel: restStopViewModel, camera: camera)
+                .task {
+                    await viewModel.start()
+                }
+        } else {
+            CameraCalibrationView(camera: camera) {
+                isCalibrated = true
             }
+        }
     }
 }

@@ -50,7 +50,11 @@ final class FaceTrackingService: NSObject {
 extension FaceTrackingService: ARSessionDelegate {
     func session(_ session: ARSession, didUpdate anchors: [ARAnchor]) {
         guard let faceAnchor = anchors.compactMap({ $0 as? ARFaceAnchor }).first else { return }
-        processFaceAnchor(faceAnchor)
+        if faceAnchor.isTracked {
+            processFaceAnchor(faceAnchor)
+        } else {
+            onFaceLost?()
+        }
     }
 
     // fallback if tracking lost

@@ -13,9 +13,10 @@ struct DriveView: View {
     @ObservedObject var restStopViewModel: RestStopViewModel
     @ObservedObject var camera: CameraViewModel
     @Environment(\.dismiss) private var dismiss
-
+    
     @State private var isRestStopListVisible = false
-
+    @State private var isCameraCheckVisible = false
+    
     var body: some View {
         ZStack(alignment: .bottomTrailing) {
             if state == .microsleep {
@@ -23,25 +24,28 @@ struct DriveView: View {
             } else {
                 Color(.systemBackground).ignoresSafeArea()
             }
-
+            
             VStack(spacing: 0) {
                 HStack {
                     Spacer()
                     HStack(spacing: 10) {
-                        Image(systemName: "camera.viewfinder")
-                            .font(.title3)
-                            .foregroundStyle(Color(red: 52/255.0, green: 199/255.0, blue: 89/255.0))
-                            .frame(width: 44, height: 44)
-                            .background(Color(.systemBackground).opacity(state == .microsleep ? 0.15 : 1))
-                            .clipShape(Circle())
-                            .glassEffect()
-
+                        Button {
+                            isCameraCheckVisible = true
+                        } label: {
+                            Image(systemName: "camera.viewfinder")
+                                .font(.title3)
+                                .foregroundStyle(Color.primary)
+                                .frame(width: 44, height: 44)
+                                .background(Color(.systemBackground).opacity(state == .microsleep ? 0.15 : 1))
+                                .clipShape(Circle())
+                                .glassEffect()
+                        }
                         Button {
                             isRestStopListVisible = true
                         } label: {
                             Image(systemName: "map")
                                 .font(.title3)
-                                .foregroundStyle(state == .microsleep ? Color.white : Color.primary)
+                                .foregroundStyle(Color.primary)
                                 .frame(width: 44, height: 44)
                                 .background(Color(.systemBackground).opacity(state == .microsleep ? 0.15 : 1))
                                 .clipShape(Circle())
@@ -49,28 +53,28 @@ struct DriveView: View {
                         }
                     }
                     .padding(.horizontal)
-                    .padding(.top, 8)                    
+                    .padding(.top, 8)
                 }
                 .padding(.horizontal)
                 .padding(.top, 8)
-
+                
                 Spacer()
-
+                
                 VStack(spacing: 0) {
                     Image(systemName: "figure.wave")
                         .resizable()
                         .scaledToFit()
                         .frame(height: 160)
                         .foregroundStyle(AppColor.appPrimary)
-
+                    
                     Ellipse()
                         .fill(Color(.systemGray5).opacity(0.7))
                         .frame(width: 160, height: 40)
                         .offset(y: -10)
                 }
-
+                
                 Spacer()
-
+                
                 Picker("Mode", selection: $viewModel.selectedMode) {
                     ForEach(SessionMode.allCases) { mode in
                         Text(mode.rawValue).tag(mode)
@@ -78,7 +82,7 @@ struct DriveView: View {
                 }
                 .pickerStyle(.segmented)
                 .padding(.horizontal, 20)
-
+                
                 ScrollViewReader { proxy in
                     ScrollView {
                         VStack(spacing: 10) {
@@ -99,7 +103,7 @@ struct DriveView: View {
                         }
                     }
                 }
-
+                
                 HStack(spacing: 12) {
                     Button {
                         viewModel.stop()
@@ -114,7 +118,7 @@ struct DriveView: View {
                             .clipShape(Capsule())
                             .glassEffect()
                     }
-
+                    
                     Circle()
                         .fill(Color(.systemGray5))
                         .frame(width: 54, height: 54)
@@ -129,16 +133,21 @@ struct DriveView: View {
                 .padding(.bottom, 16)
                 .background(state == .microsleep ? Color.red : Color.clear)
             }
-
-        #if DEBUG
-            VStack {
-                Spacer()
-
-                debugCameraPreview
-
-                Spacer()
+            
+//        #if DEBUG
+//            VStack {
+//                Spacer()
+//                
+//                debugCameraPreview
+//                
+//                Spacer()
+//            }
+//        #endif
+        }
+        .sheet(isPresented: $isCameraCheckVisible) {
+            CameraCalibrationView(camera: camera, mode: .recheck) {
+                isCameraCheckVisible = false
             }
-        #endif
         }
         .sheet(isPresented: $isRestStopListVisible) {
             RestStopListView(restStopViewModel: restStopViewModel)
@@ -164,7 +173,7 @@ struct DriveView: View {
         }
         .animation(.spring(response: 0.4, dampingFraction: 0.85), value: restStopViewModel.suggestedStop?.id)
     }
-
+    
 #if DEBUG
     private var debugCameraPreview: some View {
         CameraPreview(session: camera.session)
