@@ -300,6 +300,15 @@ final class AIViewModel: ObservableObject {
             : "Oke deh.")
     }
     
+    private func presentWithETA(_ candidate: RestStopCandidate) {
+        Task { [weak self] in
+            guard let self else { return }
+            let updated = await self.restStopViewModel.fetchEstimatedTime(for: candidate)
+            guard self.restStopViewModel.suggestedStop?.id == candidate.id else { return }
+            self.restStopViewModel.present(updated)
+        }
+    }
+    
     private func deliverCue(_ text: String) async {
         guard isRunning, !isAlarmActive else { return }
         appendHistory(ChatTurn(role: .user, text: text))
@@ -335,6 +344,7 @@ final class AIViewModel: ObservableObject {
         pendingSuggestionOrigin = origin
         status = .speaking
         speakIfNotAlarming(foundMessage(nearest))
+        presentWithETA(nearest)
     }
     
     private func checkProactiveRestStop() async {
@@ -359,6 +369,7 @@ final class AIViewModel: ObservableObject {
         let distanceKm = nearest.distance / 1000
         status = .speaking
         speakIfNotAlarming("Eh, ada \(nearest.name) sekitar \(String(format: "%.1f", distanceKm)) km lagi nih, mau mampir sebentar?")
+        presentWithETA(nearest)
     }
     
     private func coordinateKey(for candidate: RestStopCandidate) -> String {

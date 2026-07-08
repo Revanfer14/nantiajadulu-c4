@@ -35,6 +35,23 @@ final class RestStopViewModel: ObservableObject {
         return await finder.search(near: coordinate, course: currentCourse)
     }
     
+    func fetchEstimatedTime(for candidate: RestStopCandidate) async -> RestStopCandidate {
+        guard let coordinate = currentCoordinate else { return candidate }
+        
+        let request = MKDirections.Request()
+        request.source = MKMapItem(placemark: MKPlacemark(coordinate: coordinate))
+        request.destination = candidate.mapItem
+        request.transportType = .automobile
+        
+        do {
+            let response = try await MKDirections(request: request).calculateETA()
+            let minutes = max(1, Int(response.expectedTravelTime / 60))
+            return candidate.withEstimatedMinutes(minutes)
+        } catch {
+            return candidate
+        }
+    }
+    
     func present(_ candidate: RestStopCandidate) {
         suggestedStop = candidate
     }
