@@ -25,7 +25,7 @@ final class CameraViewModel: ObservableObject {
     @Published var perclos: Double = 0
     @Published var closedDuration: TimeInterval = 0
     @Published var isMicrosleep: Bool = false
-    @Published var drowsinessState: DrowsinessState = .alert
+    @Published var drowsinessState: DrowsinessState = .noFace
  
     private var previousSentState: DrowsinessState?
 

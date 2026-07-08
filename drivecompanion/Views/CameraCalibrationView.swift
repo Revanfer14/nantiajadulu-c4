@@ -103,14 +103,6 @@ struct CameraCalibrationView: View {
                 .disabled(!isFaceDetected)
                 .opacity(!isFaceDetected ? 0.4 : 1)
                 .padding(.horizontal, 28)
-                
-                if !isFaceDetected {
-                    Button("Lanjutkan tanpa deteksi") {
-                        onContinue()
-                    }
-                    .font(.footnote)
-                    .foregroundStyle(AppColor.textSecondary)
-                }
             }
         }
     }

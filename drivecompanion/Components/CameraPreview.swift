@@ -26,6 +26,8 @@ struct CameraPreview: UIViewRepresentable {
     func updateUIView(_ uiView: ARSCNView, context: Context) {}
     
     class Coordinator: NSObject, ARSCNViewDelegate {
+        private weak var faceNode: SCNNode?
+        
         func renderer(_ renderer: SCNSceneRenderer, nodeFor anchor: ARAnchor) -> SCNNode? {
             guard let device = renderer.device,
                   let faceGeometry = ARSCNFaceGeometry(device: device) else { return nil }
@@ -33,13 +35,23 @@ struct CameraPreview: UIViewRepresentable {
             faceGeometry.firstMaterial?.fillMode = .lines
             faceGeometry.firstMaterial?.diffuse.contents = UIColor.white
             
-            return SCNNode(geometry: faceGeometry)
+            let node = SCNNode(geometry: faceGeometry)
+            faceNode = node
+            return node
         }
         
-        func renderer(_ renderer: SCNSceneRenderer, didUpdate node: SCNNode, for anchor: ARAnchor) {
-            guard let faceAnchor = anchor as? ARFaceAnchor,
-                  let faceGeometry = node.geometry as? ARSCNFaceGeometry else { return }
-            faceGeometry.update(from: faceAnchor.geometry)
+        func renderer(_ renderer: SCNSceneRenderer, updateAtTime time: TimeInterval) {
+            guard let sceneView = renderer as? ARSCNView,
+                  let frame = sceneView.session.currentFrame,
+                  let faceAnchor = frame.anchors.compactMap({ $0 as? ARFaceAnchor }).first else { return }
+            
+            if let node = faceNode, let faceGeometry = node.geometry as? ARSCNFaceGeometry {
+                faceGeometry.update(from: faceAnchor.geometry)
+                node.simdTransform = faceAnchor.transform
+            } else if let node = self.renderer(sceneView, nodeFor: faceAnchor) {
+                node.simdTransform = faceAnchor.transform
+                sceneView.scene.rootNode.addChildNode(node)
+            }
         }
     }
 }

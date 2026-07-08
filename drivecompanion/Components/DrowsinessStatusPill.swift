@@ -23,7 +23,7 @@ struct DrowsinessStatusPill: View {
         .padding(.vertical, 6)
         .background(backgroundColor, in: Capsule())
         .overlay(Capsule().strokeBorder(tintColor.opacity(0.3), lineWidth: 0.5))
-        .animation(.easeInOut(duration: 0.25), value: state)
+//        .animation(.easeInOut(duration: 0.25), value: state)
     }
 
     private var iconName: String {
