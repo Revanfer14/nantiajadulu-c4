@@ -6,6 +6,13 @@
 //
 
 import SwiftUI
+import Combine
+
+private enum MascotMood {
+    case normal
+    case drowsy
+    case microsleep
+}
 
 struct DriveView: View {
     @ObservedObject var viewModel: AIViewModel
@@ -13,18 +20,17 @@ struct DriveView: View {
     @ObservedObject var restStopViewModel: RestStopViewModel
     @ObservedObject var camera: CameraViewModel
     @Environment(\.dismiss) private var dismiss
-    
+
     @State private var isRestStopListVisible = false
     @State private var isCameraCheckVisible = false
-    
+    @State private var displayedMood: MascotMood = .normal
+    @State private var lingerTask: Task<Void, Never>?
+
     var body: some View {
         ZStack(alignment: .bottomTrailing) {
-            if state == .microsleep {
-                Color.red.ignoresSafeArea()
-            } else {
-                Color(.systemBackground).ignoresSafeArea()
-            }
-            
+            moodBackground
+                .ignoresSafeArea()
+
             VStack(spacing: 0) {
                 HStack {
                     Spacer()
@@ -36,7 +42,7 @@ struct DriveView: View {
                                 .font(.title3)
                                 .foregroundStyle(Color.primary)
                                 .frame(width: 44, height: 44)
-                                .background(Color(.systemBackground).opacity(state == .microsleep ? 0.15 : 1))
+                                .background(Color(.systemBackground))
                                 .clipShape(Circle())
                                 .glassEffect()
                         }
@@ -47,7 +53,7 @@ struct DriveView: View {
                                 .font(.title3)
                                 .foregroundStyle(Color.primary)
                                 .frame(width: 44, height: 44)
-                                .background(Color(.systemBackground).opacity(state == .microsleep ? 0.15 : 1))
+                                .background(Color(.systemBackground))
                                 .clipShape(Circle())
                                 .glassEffect()
                         }
@@ -60,29 +66,10 @@ struct DriveView: View {
                 
                 Spacer()
                 
-                VStack(spacing: 0) {
-                    Image(systemName: "figure.wave")
-                        .resizable()
-                        .scaledToFit()
-                        .frame(height: 160)
-                        .foregroundStyle(AppColor.appPrimary)
-                    
-                    Ellipse()
-                        .fill(Color(.systemGray5).opacity(0.7))
-                        .frame(width: 160, height: 40)
-                        .offset(y: -10)
-                }
+                MascotView(mood: displayedMood, isSpeaking: viewModel.status == .speaking)
                 
                 Spacer()
-                
-                Picker("Mode", selection: $viewModel.selectedMode) {
-                    ForEach(SessionMode.allCases) { mode in
-                        Text(mode.rawValue).tag(mode)
-                    }
-                }
-                .pickerStyle(.segmented)
-                .padding(.horizontal, 20)
-                
+
                 ScrollViewReader { proxy in
                     ScrollView {
                         VStack(spacing: 10) {
@@ -114,24 +101,27 @@ struct DriveView: View {
                             .foregroundStyle(Color.white)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 14)
-                            .background(state == .microsleep ? Color.black : AppColor.appPrimary)
+                            .background(AppColor.appPrimary)
                             .clipShape(Capsule())
                             .glassEffect()
                     }
                     
-                    Circle()
-                        .fill(Color(.systemGray5))
-                        .frame(width: 54, height: 54)
-                        .overlay(
-                            Image(systemName: viewModel.status == .listening ? "mic.fill" : "mic")
-                                .foregroundStyle(Color(red: 0, green: 136/255.0, blue: 1))
-                                .font(.title3)
-                        )
+                    Button {
+                        viewModel.toggleMute()
+                    } label: {
+                        Circle()
+                            .fill(Color(.systemGray5))
+                            .frame(width: 54, height: 54)
+                            .overlay(
+                                Image(systemName: viewModel.isMuted ? "mic.slash.fill" : "mic.fill")
+                                    .foregroundStyle(viewModel.isMuted ? Color.red : Color(red: 0, green: 136/255.0, blue: 1))
+                                    .font(.title3)
+                            )
+                    }
                 }
                 .padding(.horizontal, 20)
                 .padding(.top, 20)
                 .padding(.bottom, 16)
-                .background(state == .microsleep ? Color.red : Color.clear)
             }
             
 //        #if DEBUG
@@ -172,8 +162,52 @@ struct DriveView: View {
                 .padding(.leading, 16)
         }
         .animation(.spring(response: 0.4, dampingFraction: 0.85), value: restStopViewModel.suggestedStop?.id)
+        .animation(.easeInOut(duration: 0.35), value: displayedMood)
+        .onChange(of: state, initial: true) { _, newState in
+            lingerTask?.cancel()
+            lingerTask = nil
+            switch newState {
+            case .drowsy:
+                displayedMood = .drowsy
+            case .microsleep:
+                displayedMood = .microsleep
+            case .alert, .noFace:
+                guard displayedMood != .normal else { return }
+                let delay: TimeInterval = displayedMood == .microsleep ? 5 : 3
+                lingerTask = Task { @MainActor in
+                    try? await Task.sleep(for: .seconds(delay))
+                    guard !Task.isCancelled else { return }
+                    displayedMood = .normal
+                }
+            }
+        }
+        .onDisappear {
+            lingerTask?.cancel()
+        }
     }
-    
+
+    @ViewBuilder
+    private var moodBackground: some View {
+        switch displayedMood {
+        case .normal:
+            Color(.systemBackground)
+        case .drowsy:
+            RadialGradient(
+                colors: [Color(red: 1, green: 0.98, blue: 0.93), Color(red: 0.98, green: 0.91, blue: 0.78)],
+                center: .center,
+                startRadius: 0,
+                endRadius: 500
+            )
+        case .microsleep:
+            RadialGradient(
+                colors: [Color(red: 1, green: 0.96, blue: 0.96), Color(red: 0.97, green: 0.8, blue: 0.78)],
+                center: .center,
+                startRadius: 0,
+                endRadius: 500
+            )
+        }
+    }
+
 #if DEBUG
     private var debugCameraPreview: some View {
         CameraPreview(session: camera.session)
@@ -201,6 +235,54 @@ struct DriveView: View {
 #endif
 }
 
+private struct MascotView: View {
+    let mood: MascotMood
+    let isSpeaking: Bool
+
+    @State private var showTalkFrame = false
+    @State private var isBreathing = false
+
+    private let talkTimer = Timer.publish(every: 0.28, on: .main, in: .common).autoconnect()
+
+    private var frames: (idle: String, talk: String) {
+        switch mood {
+        case .normal:
+            ("happy1", "happy2")
+        case .drowsy:
+            ("careful1", "careful2")
+        case .microsleep:
+            ("marah1", "marah2")
+        }
+    }
+
+    private var frame: String {
+        (isSpeaking && showTalkFrame) ? frames.talk : frames.idle
+    }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            Image(frame)
+                .resizable()
+                .scaledToFit()
+                .frame(height: 200)
+                .scaleEffect(isBreathing ? 1.03 : 1.0)
+
+            Ellipse()
+                .fill(Color(.systemGray5).opacity(0.7))
+                .frame(width: 160, height: 40)
+                .offset(y: -10)
+        }
+        .onAppear {
+            withAnimation(.easeInOut(duration: 1.6).repeatForever(autoreverses: true)) {
+                isBreathing = true
+            }
+        }
+        .onReceive(talkTimer) { _ in
+            showTalkFrame = isSpeaking ? !showTalkFrame : false
+        }
+    }
+}
+
 #Preview("Normal") {
     let monitor = DrowsinessMonitor()
     let restStop = RestStopViewModel()
@@ -212,6 +294,18 @@ struct DriveView: View {
     ]
     vm.status = .listening
     return DriveView(viewModel: vm, state: .alert, restStopViewModel: restStop, camera: CameraViewModel(monitor: monitor))
+}
+
+#Preview("Drowsy") {
+    let monitor = DrowsinessMonitor()
+    let restStop = RestStopViewModel()
+    let vm = AIViewModel(drowsinessMonitor: monitor, restStopViewModel: restStop)
+    vm.history = [
+        ChatTurn(role: .model, text: "Hei, kamu mulai keliatan ngantuk nih. Mau aku carikan tempat istirahat terdekat?"),
+        ChatTurn(role: .user, text: "Ah nanggung, tinggal 30 menit lagi sampai rumah.")
+    ]
+    vm.status = .listening
+    return DriveView(viewModel: vm, state: .drowsy, restStopViewModel: restStop, camera: CameraViewModel(monitor: monitor))
 }
 
 #Preview("Microsleep") {
