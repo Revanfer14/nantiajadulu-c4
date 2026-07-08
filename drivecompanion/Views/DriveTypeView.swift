@@ -39,6 +39,8 @@ struct DrivingTypeView: View {
                             .clipShape(Circle())
                             .glassEffect()
                     }
+                    .padding(.horizontal)
+                    .padding(.top, 8)                    
                 }
                 .padding(.horizontal)
                 .padding(.top, 8)

@@ -9,6 +9,7 @@ import SwiftUI
 
 struct DrivingView: View {
     @StateObject private var connectivity = WatchConnectivityManager.shared
+    @StateObject private var motion = MotionManager.shared
     
     var body: some View {
         VStack (spacing: 20) {
@@ -22,6 +23,13 @@ struct DrivingView: View {
             }
             .frame(width: 200, height: 200)
             .padding()
+        }
+        .onAppear {
+            motion.startMotionUpdates()
+        }
+        
+        .onDisappear {
+            motion.stopMotionUpdates()
         }
     }
 }

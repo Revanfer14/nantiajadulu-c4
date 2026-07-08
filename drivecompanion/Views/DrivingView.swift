@@ -14,6 +14,8 @@ struct DrivingView: View {
     @StateObject private var viewModel: AIViewModel
     @StateObject private var restStopViewModel: RestStopViewModel
     
+    @State private var isRestStopListVisible = false
+    
     init() {
         let monitor = DrowsinessMonitor()
         let restStop = RestStopViewModel()
@@ -73,13 +75,17 @@ struct DrivingView: View {
                     }
                 }
                 .padding()
-                .navigationTitle("C4")
                 .toolbar {
                     ToolbarItem(placement: .topBarTrailing) {
-                        Text("Model: \(viewModel.activeModel.isEmpty ? "-" : viewModel.activeModel)")
-                            .font(.footnote)
-                            .foregroundStyle(.tertiary)
+                        Button {
+                            isRestStopListVisible = true
+                        } label: {
+                            Image(systemName: "mappin.and.ellipse")
+                        }
                     }
+                }
+                .sheet(isPresented: $isRestStopListVisible) {
+                    RestStopListView(restStopViewModel: restStopViewModel)
                 }
             }
             
@@ -93,7 +99,7 @@ struct DrivingView: View {
             }
         #endif
         }
-        .overlay(alignment: .bottom) {
+        .overlay(alignment: .top) {
             if let candidate = restStopViewModel.suggestedStop {
                 RestStopCard(
                     candidate: candidate,
@@ -103,8 +109,8 @@ struct DrivingView: View {
                         }
                     },
                     onDismiss: { restStopViewModel.dismiss() })
-                .padding(.bottom, 24)
-                .transition(.move(edge: .bottom).combined(with: .opacity))
+                .padding(.top, 80)
+                .transition(.move(edge: .top).combined(with: .opacity))
             }
         }
         .animation(.spring(response: 0.4, dampingFraction: 0.85), value: restStopViewModel.suggestedStop?.id)
