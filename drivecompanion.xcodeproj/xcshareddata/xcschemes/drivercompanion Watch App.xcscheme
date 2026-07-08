@@ -55,10 +55,8 @@
       debugServiceExtension = "internal"
       allowLocationSimulation = "YES"
       queueDebuggingEnableBacktraceRecording = "Yes">
-      <RemoteRunnable
-         runnableDebuggingMode = "2"
-         BundleIdentifier = "com.apple.Carousel"
-         RemotePath = "/drivercompanion">
+      <BuildableProductRunnable
+         runnableDebuggingMode = "0">
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "E8FD66222FFA805000416E38"
@@ -66,7 +64,7 @@
             BlueprintName = "drivercompanion Watch App"
             ReferencedContainer = "container:drivecompanion.xcodeproj">
          </BuildableReference>
-      </RemoteRunnable>
+      </BuildableProductRunnable>
    </LaunchAction>
    <ProfileAction
       buildConfiguration = "Release"
@@ -74,10 +72,8 @@
       savedToolIdentifier = ""
       useCustomWorkingDirectory = "NO"
       debugDocumentVersioning = "YES">
-      <RemoteRunnable
-         runnableDebuggingMode = "2"
-         BundleIdentifier = "com.apple.Carousel"
-         RemotePath = "/drivercompanion">
+      <BuildableProductRunnable
+         runnableDebuggingMode = "0">
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "E8FD66222FFA805000416E38"
@@ -85,7 +81,7 @@
             BlueprintName = "drivercompanion Watch App"
             ReferencedContainer = "container:drivecompanion.xcodeproj">
          </BuildableReference>
-      </RemoteRunnable>
+      </BuildableProductRunnable>
    </ProfileAction>
    <AnalyzeAction
       buildConfiguration = "Debug">
