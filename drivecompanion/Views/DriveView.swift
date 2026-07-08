@@ -119,14 +119,18 @@ struct DriveView: View {
                             .glassEffect()
                     }
                     
-                    Circle()
-                        .fill(Color(.systemGray5))
-                        .frame(width: 54, height: 54)
-                        .overlay(
-                            Image(systemName: viewModel.status == .listening ? "mic.fill" : "mic")
-                                .foregroundStyle(Color(red: 0, green: 136/255.0, blue: 1))
-                                .font(.title3)
-                        )
+                    Button {
+                        viewModel.toggleMute()
+                    } label: {
+                        Circle()
+                            .fill(Color(.systemGray5))
+                            .frame(width: 54, height: 54)
+                            .overlay(
+                                Image(systemName: viewModel.isMuted ? "mic.slash.fill" : "mic.fill")
+                                    .foregroundStyle(viewModel.isMuted ? Color.red : Color(red: 0, green: 136/255.0, blue: 1))
+                                    .font(.title3)
+                            )
+                    }
                 }
                 .padding(.horizontal, 20)
                 .padding(.top, 20)

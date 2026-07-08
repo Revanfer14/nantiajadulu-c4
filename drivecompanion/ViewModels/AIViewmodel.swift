@@ -34,6 +34,7 @@ enum CompanionStatus: String {
     case thinking = "Lagi mikir..."
     case speaking = "Ngobrol..."
     case alerting = "Terdeteksi ngantuk"
+    case muted = "Mikrofon dimatikan"
 }
 
 //@available(iOS 26.0, *)
@@ -44,6 +45,7 @@ final class AIViewModel: ObservableObject {
     @Published var selectedMode: SessionMode = .driverInitiated
     @Published var permissionDenied = false
     @Published var activeModel: String = ""
+    @Published var isMuted = false
     
     private static let systemPersona = """
         Kamu adalah sohib dekat yang lagi nemenin driver nyetir — santai, akrab, genuinely penasaran sama cerita dia. Ngobrolnya kayak temen lama, bukan asisten.
@@ -155,6 +157,10 @@ final class AIViewModel: ObservableObject {
         speechOutput.onFinish = { [weak self] in
             Task { @MainActor [weak self] in
                 guard let self, self.isRunning else { return }
+                if self.isMuted {
+                    self.status = self.isAlarmActive ? .alerting : .muted
+                    return
+                }
                 self.speechInput.resume()
                 self.status = self.isAlarmActive ? .alerting : .listening
                 self.armProactiveTimer()
@@ -192,6 +198,7 @@ final class AIViewModel: ObservableObject {
         lastAnnouncedState = drowsinessMonitor.state
         pendingRecoveryState = nil
         pendingRestStopPrompt = false
+        isMuted = false
         isRunning = true
         
         speechInput.start { [weak self] transcript in
@@ -229,6 +236,7 @@ final class AIViewModel: ObservableObject {
         pendingRecoveryState = nil
         pendingRestStopPrompt = false
         pendingSuggestionOrigin = nil
+        isMuted = false
         isRunning = false
         status = .idle
         restStopProactiveTask?.cancel()
@@ -442,19 +450,40 @@ final class AIViewModel: ObservableObject {
     
     private func resumeAfterAlarm() {
         appendHistory(ChatTurn(role: .user, text: Self.recoveryNote))
+        if isMuted {
+            status = .muted
+            return
+        }
         speechInput.resume()
         status = .listening
         armProactiveTimer()
     }
-    
+
     private func armProactiveTimer() {
         proactiveTask?.cancel()
-        guard !isAlarmActive, let interval = selectedMode.nextInterval else { return }
-        
+        guard !isAlarmActive, !isMuted, let interval = selectedMode.nextInterval else { return }
+
         proactiveTask = Task { [weak self] in
             try? await Task.sleep(for: .seconds(interval))
             guard let self, !Task.isCancelled else { return }
             await self.deliverCue(self.proactiveCue)
+        }
+    }
+
+    func toggleMute() {
+        guard isRunning else { return }
+        isMuted.toggle()
+        if isMuted {
+            proactiveTask?.cancel()
+            proactiveTask = nil
+            speechOutput.stop()
+            speechInput.pause()
+            status = isAlarmActive ? .alerting : .muted
+        } else {
+            guard !isAlarmActive else { return }
+            speechInput.resume()
+            status = .listening
+            armProactiveTimer()
         }
     }
     
