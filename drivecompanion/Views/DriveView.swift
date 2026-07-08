@@ -10,10 +10,14 @@ import SwiftUI
 struct DriveView: View {
     @ObservedObject var viewModel: AIViewModel
     let state: DrowsinessState
+    @ObservedObject var restStopViewModel: RestStopViewModel
+    @ObservedObject var camera: CameraViewModel
     @Environment(\.dismiss) private var dismiss
 
+    @State private var isRestStopListVisible = false
+
     var body: some View {
-        ZStack {
+        ZStack(alignment: .bottomTrailing) {
             if state == .microsleep {
                 Color.red.ignoresSafeArea()
             } else {
@@ -32,13 +36,17 @@ struct DriveView: View {
                             .clipShape(Circle())
                             .glassEffect()
 
-                        Image(systemName: "map")
-                            .font(.title3)
-                            .foregroundStyle(state == .microsleep ? Color.white : Color.primary)
-                            .frame(width: 44, height: 44)
-                            .background(Color(.systemBackground).opacity(state == .microsleep ? 0.15 : 1))
-                            .clipShape(Circle())
-                            .glassEffect()
+                        Button {
+                            isRestStopListVisible = true
+                        } label: {
+                            Image(systemName: "map")
+                                .font(.title3)
+                                .foregroundStyle(state == .microsleep ? Color.white : Color.primary)
+                                .frame(width: 44, height: 44)
+                                .background(Color(.systemBackground).opacity(state == .microsleep ? 0.15 : 1))
+                                .clipShape(Circle())
+                                .glassEffect()
+                        }
                     }
                     .padding(.horizontal)
                     .padding(.top, 8)                    
@@ -121,27 +129,85 @@ struct DriveView: View {
                 .padding(.bottom, 16)
                 .background(state == .microsleep ? Color.red : Color.clear)
             }
+
+        #if DEBUG
+            VStack {
+                Spacer()
+
+                debugCameraPreview
+
+                Spacer()
+            }
+        #endif
         }
+        .sheet(isPresented: $isRestStopListVisible) {
+            RestStopListView(restStopViewModel: restStopViewModel)
+        }
+        .overlay(alignment: .top) {
+            if let candidate = restStopViewModel.suggestedStop {
+                RestStopCard(
+                    candidate: candidate,
+                    onAccept: {
+                        if let confirmed = restStopViewModel.confirm() {
+                            restStopViewModel.openInMaps(confirmed)
+                        }
+                    },
+                    onDismiss: { restStopViewModel.dismiss() })
+                .padding(.top, 80)
+                .transition(.move(edge: .top).combined(with: .opacity))
+            }
+        }
+        .animation(.spring(response: 0.4, dampingFraction: 0.85), value: restStopViewModel.suggestedStop?.id)
     }
+
+#if DEBUG
+    private var debugCameraPreview: some View {
+        CameraPreview(session: camera.session)
+            .frame(width: 110, height: 150)
+            .clipShape(RoundedRectangle(cornerRadius: 12))
+            .overlay(
+                RoundedRectangle(cornerRadius: 12)
+                    .stroke(Color.yellow.opacity(0.8), lineWidth: 1.5)
+            )
+            .overlay(alignment: .topLeading) {
+                Text("DEBUG")
+                    .font(.caption2.bold())
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(Color.yellow.opacity(0.85))
+                    .foregroundStyle(.black)
+                    .clipShape(RoundedRectangle(cornerRadius: 6))
+                    .padding(4)
+            }
+            .shadow(radius: 4)
+            .padding(.trailing, 16)
+            .padding(.bottom, 24)
+            .allowsHitTesting(false)
+    }
+#endif
 }
 
 #Preview("Normal") {
-    let vm = AIViewModel(drowsinessMonitor: DrowsinessMonitor(), restStopViewModel: RestStopViewModel())
+    let monitor = DrowsinessMonitor()
+    let restStop = RestStopViewModel()
+    let vm = AIViewModel(drowsinessMonitor: monitor, restStopViewModel: restStop)
     vm.history = [
         ChatTurn(role: .model, text: "Eh, macetnya lumayan tadi. Lu udah di jalan dari jam berapa?"),
         ChatTurn(role: .user, text: "Dari jam 7 pagi, baru nyampe sekarang. Capek banget."),
         ChatTurn(role: .model, text: "Lumayan lama tuh. Udah makan belum? Jangan sampai laper pas nyetir.")
     ]
     vm.status = .listening
-    return DriveView(viewModel: vm, state: .alert)
+    return DriveView(viewModel: vm, state: .alert, restStopViewModel: restStop, camera: CameraViewModel(monitor: monitor))
 }
 
 #Preview("Microsleep") {
-    let vm = AIViewModel(drowsinessMonitor: DrowsinessMonitor(), restStopViewModel: RestStopViewModel())
+    let monitor = DrowsinessMonitor()
+    let restStop = RestStopViewModel()
+    let vm = AIViewModel(drowsinessMonitor: monitor, restStopViewModel: restStop)
     vm.history = [
         ChatTurn(role: .model, text: "Hei, tadi kamu sempet microsleep. Itu bahaya banget, mending cari tempat istirahat sekarang."),
         ChatTurn(role: .user, text: "Iya, gua juga kaget. Untung masih aman.")
     ]
     vm.status = .listening
-    return DriveView(viewModel: vm, state: .microsleep)
+    return DriveView(viewModel: vm, state: .microsleep, restStopViewModel: restStop, camera: CameraViewModel(monitor: monitor))
 }
