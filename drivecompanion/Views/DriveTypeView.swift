@@ -4,107 +4,110 @@
 //
 //  Created by Stephanie Vania Suwardi Data on 06/07/26.
 //
+
 import SwiftUI
 
 struct DrivingTypeView: View {
     @ObservedObject var viewModel: AIViewModel
     let state: DrowsinessState
-    
-    // Ambil teks respons terakhir dari LLM Gemini di dalam history
-    private var lastLLMResponse: String {
-        viewModel.history.last(where: { $0.role == .model })?.text ?? "Menemanimu di perjalanan..."
-    }
-    
+
     var body: some View {
         ZStack {
-            // 1. KOREKSI BACKGROUND: Menggunakan secondarySystemBackground (Abu-abu lembut)
-            // agar balon kata putih/biru muda bisa terlihat kontras seperti di gambar
             if state == .microsleep {
-                Color.red.edgesIgnoringSafeArea(.all)
+                Color.red.ignoresSafeArea()
             } else {
-                Color(.secondarySystemBackground).edgesIgnoringSafeArea(.all)
+                Color(.systemBackground).ignoresSafeArea()
             }
-            
+
             VStack(spacing: 0) {
-                // HEDER UTAMA: Maskot & Status Kamera/Peta
-                VStack {
-                    HStack {
-                        Spacer()
-                        HStack(spacing: 16) {
-                            Image(systemName: "camera.viewfinder")
-                            Image(systemName: "map")
-                        }
-                        .font(.title3)
-                        .padding(10)
-                        // Tombol atas di gambar berwarna putih bersih
-                        .background(state == .microsleep ? Color.black.opacity(0.2) : Color(.systemBackground))
-                        .clipShape(RoundedRectangle(cornerRadius: 12))
-                        .shadow(color: Color.black.opacity(0.05), radius: 4, x: 0, y: 2)
+                HStack {
+                    Spacer()
+                    HStack(spacing: 10) {
+                        Image(systemName: "camera.viewfinder")
+                            .font(.title3)
+                            .foregroundStyle(Color(red: 52/255.0, green: 199/255.0, blue: 89/255.0))
+                            .frame(width: 44, height: 44)
+                            .background(Color(.systemBackground).opacity(state == .microsleep ? 0.15 : 1))
+                            .clipShape(Circle())
+                            .glassEffect()
+
+                        Image(systemName: "map")
+                            .font(.title3)
+                            .foregroundStyle(state == .microsleep ? Color.white : Color.primary)
+                            .frame(width: 44, height: 44)
+                            .background(Color(.systemBackground).opacity(state == .microsleep ? 0.15 : 1))
+                            .clipShape(Circle())
+                            .glassEffect()
                     }
                     .padding(.horizontal)
-                    .padding(.top, 8)
-                    
-                    // BAGIAN MASKOT
-//                    MascotView(state: state)
-//                        .frame(maxHeight: 280)
-//                        .padding(.vertical)
+                    .padding(.top, 8)                    
                 }
-                
-                // AREA TENGAH KE BAWAH: Tampilan Balon Kata (ChatView)
-                GeometryReader { geometry in
-                    ScrollViewReader { proxy in
-                        ScrollView {
-                            VStack {
-                                Spacer(minLength: 0) // Memaksa balon kata kumpul di bawah dekat tombol
-                                
-                                VStack(spacing: 10) {
-                                    ForEach(viewModel.history.indices, id: \.self) { index in
-                                        let turn = viewModel.history[index]
-                                        ChatBubble(turn: turn)
-                                            .id(index)
-                                    }
-                                }
+                .padding(.horizontal)
+                .padding(.top, 8)
+
+                Spacer()
+
+                VStack(spacing: 0) {
+                    Image(systemName: "figure.wave")
+                        .resizable()
+                        .scaledToFit()
+                        .frame(height: 160)
+                        .foregroundStyle(AppColor.appPrimary)
+
+                    Ellipse()
+                        .fill(Color(.systemGray5).opacity(0.7))
+                        .frame(width: 160, height: 40)
+                        .offset(y: -10)
+                }
+
+                Spacer()
+
+                ScrollViewReader { proxy in
+                    ScrollView {
+                        VStack(spacing: 10) {
+                            ForEach(viewModel.history.indices, id: \.self) { index in
+                                ChatBubble(turn: viewModel.history[index])
+                                    .id(index)
                             }
-                            .frame(minHeight: geometry.size.height, alignment: .bottom)
-                            .padding(.horizontal)
                         }
-                        .onChange(of: viewModel.history.count) {
-                            if viewModel.history.count > 0 {
-                                withAnimation {
-                                    proxy.scrollTo(viewModel.history.count - 1, anchor: .bottom)
-                                }
+                        .padding(.horizontal, 20)
+                        .padding(.vertical, 10)
+                    }
+                    .frame(height: 260)
+                    .onChange(of: viewModel.history.count) {
+                        if viewModel.history.count > 0 {
+                            withAnimation {
+                                proxy.scrollTo(viewModel.history.count - 1, anchor: .bottom)
                             }
                         }
                     }
                 }
-                
-                // KONTROL BAWAH: Tombol Berhenti Mengemudi & Pemicu Mic
-                HStack(spacing: 16) {
-                    Button(action: {
+
+                HStack(spacing: 12) {
+                    Button {
                         viewModel.stop()
-                    }) {
+                    } label: {
                         Text("Berhenti Mengemudi")
                             .font(.headline)
-                            .foregroundColor(.white)
+                            .foregroundStyle(Color.white)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 14)
-                            .background(state == .microsleep ? Color.black : Color(red: 35/255, green: 79/255, blue: 146/255))
+                            .background(state == .microsleep ? Color.black : AppColor.appPrimary)
                             .clipShape(Capsule())
+                            .glassEffect()
                     }
-                    
-                    // Indikator/Tombol Mikrofon (Warna putih bersih di kondisi normal)
+
                     Circle()
-                        .fill(state == .microsleep ? Color.black.opacity(0.2) : Color(.systemBackground))
-                        .frame(width: 50, height: 50)
+                        .fill(Color(.systemGray5))
+                        .frame(width: 54, height: 54)
                         .overlay(
                             Image(systemName: viewModel.status == .listening ? "mic.fill" : "mic")
-                                .foregroundColor(.blue)
+                                .foregroundStyle(Color(red: 0, green: 136/255.0, blue: 1))
                                 .font(.title3)
                         )
                 }
-                .padding()
-                // 2. KOREKSI KONTROL BAWAH: Menghilangkan background putih solidnya
-                // agar menyatu mulus dengan warna latar belakang abu-abu di atasnya
+                .padding(.horizontal, 20)
+                .padding(.vertical, 16)
                 .background(state == .microsleep ? Color.red : Color.clear)
             }
         }
