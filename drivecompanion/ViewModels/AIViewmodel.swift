@@ -12,22 +12,6 @@ import AVFoundation
 import Combine
 internal import _LocationEssentials
 
-enum SessionMode: String, CaseIterable, Identifiable {
-    case continuousProactive = "Terus-Menerus"
-    case driverInitiated = "Hanya Merespons"
-    
-    var id: String { rawValue }
-    
-    var nextInterval: TimeInterval? {
-        switch self {
-        case .continuousProactive:
-            return TimeInterval.random(in: 15...30)
-        case .driverInitiated:
-            return nil
-        }
-    }
-}
-
 enum CompanionStatus: String {
     case idle = "Menunggu..."
     case listening = "Mendengarkan..."
@@ -42,7 +26,6 @@ enum CompanionStatus: String {
 final class AIViewModel: ObservableObject {
     @Published var isRunning = false
     @Published var status: CompanionStatus = .idle
-    @Published var selectedMode: SessionMode = .driverInitiated
     @Published var permissionDenied = false
     @Published var activeModel: String = ""
     @Published var isMuted = false
@@ -110,8 +93,7 @@ final class AIViewModel: ObservableObject {
     
     private var isOnline = true
     var history: [ChatTurn] = []
-    private var proactiveTask: Task<Void, Never>?
-    
+
     private var restStopProactiveTask: Task<Void, Never>?
     private var lastProactiveSuggestionKey: String?
     private var lastProactiveSuggestionAt: Date?
@@ -130,16 +112,6 @@ final class AIViewModel: ObservableObject {
     }
     
     private let historyLimit = 20
-    
-    private var proactiveCue: String {
-        let cues = [
-            "(Waktunya kamu mulai ngobrol duluan. Buka dengan cara yang natural — bisa nanya kabar driver, nyeletuk sesuatu, atau angkat topik ringan baru yang belum pernah dibahas.)",
-            "(Kamu yang memulai. Pilih pendekatan yang berbeda dari sebelumnya — mungkin tanya pendapat driver soal sesuatu, atau buka topik yang seru dan fresh.)",
-            "(Giliran kamu duluan. Cari cara pembukaan yang santai dan variatif, jangan terkesan template. Topik harus baru, belum pernah dibahas di percakapan ini.)",
-            "(Mulai ngobrol sekarang. Bisa nanya kondisi driver dengan hangat, atau langsung lontar topik ringan yang menarik dan belum disentuh sebelumnya.)"
-        ]
-        return cues.randomElement() ?? cues[0]
-    }
     
     init(drowsinessMonitor: DrowsinessMonitor, restStopViewModel: RestStopViewModel) {
         self.drowsinessMonitor = drowsinessMonitor
@@ -163,7 +135,6 @@ final class AIViewModel: ObservableObject {
                 }
                 self.speechInput.resume()
                 self.status = self.isAlarmActive ? .alerting : .listening
-                self.armProactiveTimer()
             }
         }
         
@@ -206,8 +177,7 @@ final class AIViewModel: ObservableObject {
                 await self?.sendTurn(transcript)
             }
         }
-        armProactiveTimer()
-        
+
         if isAlarmActive {
             pauseForAlarm()
             pendingRecoveryState = drowsinessMonitor.state
@@ -226,8 +196,6 @@ final class AIViewModel: ObservableObject {
     }
     
     func stop() {
-        proactiveTask?.cancel()
-        proactiveTask = nil
         speechInput.stop()
         speechOutput.stop()
         history = []
@@ -441,8 +409,6 @@ final class AIViewModel: ObservableObject {
     }
     
     private func pauseForAlarm() {
-        proactiveTask?.cancel()
-        proactiveTask = nil
         speechOutput.stop()
         speechInput.pause()
         status = .alerting
@@ -456,26 +422,12 @@ final class AIViewModel: ObservableObject {
         }
         speechInput.resume()
         status = .listening
-        armProactiveTimer()
-    }
-
-    private func armProactiveTimer() {
-        proactiveTask?.cancel()
-        guard !isAlarmActive, !isMuted, let interval = selectedMode.nextInterval else { return }
-
-        proactiveTask = Task { [weak self] in
-            try? await Task.sleep(for: .seconds(interval))
-            guard let self, !Task.isCancelled else { return }
-            await self.deliverCue(self.proactiveCue)
-        }
     }
 
     func toggleMute() {
         guard isRunning else { return }
         isMuted.toggle()
         if isMuted {
-            proactiveTask?.cancel()
-            proactiveTask = nil
             speechOutput.stop()
             speechInput.pause()
             status = isAlarmActive ? .alerting : .muted
@@ -483,7 +435,6 @@ final class AIViewModel: ObservableObject {
             guard !isAlarmActive else { return }
             speechInput.resume()
             status = .listening
-            armProactiveTimer()
         }
     }
     
