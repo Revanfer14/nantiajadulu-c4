@@ -23,7 +23,7 @@ struct DriveSessionView: View {
     }
 
     var body: some View {
-        DriveView(viewModel: viewModel, state: drowsinessMonitor.state)
+        DriveView(viewModel: viewModel, state: drowsinessMonitor.state, restStopViewModel: restStopViewModel, camera: camera)
             .task {
                 await viewModel.start()
             }
