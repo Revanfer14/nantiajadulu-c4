@@ -28,7 +28,7 @@ struct CameraCalibrationView: View {
                     .navigationBarTitleDisplayMode(.inline)
                     .toolbar {
                         ToolbarItem(placement: .principal) {
-                            Text("Periksa Posisi Kamera")
+                            Text("Set Up Kamera")
                                 .font(.title3)
                                 .fontWeight(.bold)
                                 .foregroundStyle(AppColor.textPrimary)
@@ -51,7 +51,7 @@ struct CameraCalibrationView: View {
     private var content: some View {
         VStack(spacing: 20) {
             if mode == .initialSetup {
-                Text("Periksa Posisi Kamera")
+                Text("Set Up Kamera")
                     .font(AppFont.screenTitle)
                     .foregroundStyle(AppColor.textPrimary)
                     .multilineTextAlignment(.center)
@@ -87,6 +87,7 @@ struct CameraCalibrationView: View {
                 VStack(alignment: .leading, spacing: 12) {
                     tipRow(icon: "camera.viewfinder", text: "Taruh HP di phoneholder biar kamera stabil selama nyetir")
                     tipRow(icon: "applewatch", text: "Buka aplikasi Jaga di Apple Watch buat dapet getaran kalau kamu ngantuk (opsional)")
+                    tipRow(icon: "bell.slash", text: "Untuk matiin alarm, buka mata 3 detik tanpa berkedip atau lakukan flick di Apple Watch")
                 }
                 .padding(16)
                 .background(Color(.systemGray6))
@@ -102,7 +103,7 @@ struct CameraCalibrationView: View {
                 }
                 .disabled(!isFaceDetected)
                 .opacity(!isFaceDetected ? 0.4 : 1)
-                .padding(.horizontal, 28)
+                .padding(.horizontal, 20)
             }
         }
     }

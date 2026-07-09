@@ -12,7 +12,18 @@ struct HomeView: View {
     
     var body: some View {
         ZStack {
-            // TODO: Add background cloud, car, mascot
+            Image(.backgroundHome)
+                .resizable()
+                .scaleEffect(2)
+                .scaledToFit()
+                .padding(.top, 140)
+                .ignoresSafeArea()
+            Image(.happy2)
+                .resizable()
+                .scaledToFit()
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                .padding(.top, 220)
+                .ignoresSafeArea()
             
             VStack (alignment: .leading, spacing: 8) {
                 Text("Udah siap jalan hari ini? 🚗")
@@ -25,16 +36,11 @@ struct HomeView: View {
                 
                 Spacer()
                 
-                PrimaryButton("Lanjutkan") {
+                PrimaryButton("Mulai Berkendara") {
                     isDrivingActive = true
                 }
-                
-                // delete this later
-                PrimaryButton("Test Watch") {
-                    WatchConnectivityManager.shared.startDrivingSession()
-                }
             }
-            .padding(.top, 50)
+            .padding(.top, 30)
             .padding(.horizontal, 20)
         }
         .fullScreenCover(isPresented: $isDrivingActive) {
