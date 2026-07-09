@@ -109,6 +109,7 @@ final class AIViewModel: ObservableObject {
     private var pendingRecoveryState: DrowsinessState?
     private var pendingRestStopPrompt = false
     private var pendingSuggestionOrigin: RestStopSuggestionOrigin?
+    private var isGreeting = false
     
     private var isAlarmActive: Bool {
         drowsinessMonitor.state == .drowsy || drowsinessMonitor.state == .microsleep
@@ -132,6 +133,11 @@ final class AIViewModel: ObservableObject {
         speechOutput.onFinish = { [weak self] in
             Task { @MainActor [weak self] in
                 guard let self, self.isRunning else { return }
+                if self.isGreeting {
+                    self.isGreeting = false
+                    self.finishGreeting()
+                    return
+                }
                 if self.isMuted {
                     self.status = self.isAlarmActive ? .alerting : .muted
                     return
@@ -209,6 +215,7 @@ final class AIViewModel: ObservableObject {
         pendingSuggestionOrigin = nil
         isMuted = false
         isRunning = false
+        isGreeting = false
         status = .idle
         restStopProactiveTask?.cancel()
         restStopProactiveTask = nil
@@ -219,9 +226,10 @@ final class AIViewModel: ObservableObject {
     }
     
     private func sendTurn(_ userText: String) async {
-        guard isRunning, !isAlarmActive else { return }
+        guard isRunning, !isAlarmActive, status == .listening else { return }
+
         appendHistory(ChatTurn(role: .user, text: userText))
-        
+
         if pendingRestStopPrompt {
             pendingRestStopPrompt = false
             if isAffirmative(userText) {
@@ -372,7 +380,17 @@ final class AIViewModel: ObservableObject {
         
         let alarmActive = newState == .drowsy || newState == .microsleep
         let wasAlarmActive = lastAnnouncedState == .drowsy || lastAnnouncedState == .microsleep
-        
+
+        if isGreeting {
+            if alarmActive {
+                let isPendingMicrosleep = pendingRecoveryState == .microsleep
+                if newState == .microsleep || !isPendingMicrosleep {
+                    pendingRecoveryState = newState
+                }
+            }
+            return
+        }
+
         if alarmActive {
             pauseForAlarm()
             let isPendingMicrosleep =  pendingRecoveryState == .microsleep
@@ -408,19 +426,19 @@ final class AIViewModel: ObservableObject {
     private func askAboutRestStop() async {
         speechInput.pause()
         status = .speaking
-        let text = "Hei, kamu mulai keliatan ngantuk nih. Mau aku carikan tempat istirahat terdekat?"
+        let text = "Eh, sori gua motong obrolan tadi ya. Lu keliatan mulai ngantuk nih — mau gua cariin tempat istirahat terdekat?"
         appendHistory(ChatTurn(role: .model, text: text))
         speakIfNotAlarming(text)
         pendingRestStopPrompt = true
     }
-    
+
     private func presentMicrosleepRestStop() async {
         await searchAndPresentRestStop(
             origin: .microsleep,
-            notFoundMessage: "Hei, barusan kamu microsleep, tapi belum ketemu tempat istirahat terdekat. Coba pelan-pelan dan cari tempat aman buat berhenti ya.",
+            notFoundMessage: "Eh, tadi lu sempet microsleep bentar. Gua belum nemu tempat istirahat terdekat, tapi pelan-pelan ya, cari tempat aman buat berhenti.",
             foundMessage: { candidate in
                 let distanceKm = candidate.distance / 1000
-                return "Tadi kamu sempet microsleep, itu bahaya banget. Mau mati kamu? Ada \(candidate.name) sekitar \(String(format: "%.1f", distanceKm)) km lagi, yuk mampir istirahat dulu."
+                return "Eh bentar ya, tadi lu sempet ketiduran sepersekian detik — itu bahaya banget. Ada \(candidate.name) sekitar \(String(format: "%.1f", distanceKm)) km lagi, mampir istirahat dulu yuk."
             })
     }
     
@@ -431,7 +449,7 @@ final class AIViewModel: ObservableObject {
     }
     
     private func resumeAfterAlarm() {
-        appendHistory(ChatTurn(role: .user, text: Self.recoveryNote))
+        appendHistory(ChatTurn(role: .user, text: Self.recoveryNote, isInternal: true))
         if isMuted {
             status = .muted
             return
@@ -527,14 +545,37 @@ final class AIViewModel: ObservableObject {
     }
 
     private func speakGreeting() {
+        isGreeting = true
         speechInput.pause()
         status = .speaking
         Task { @MainActor [weak self] in
             try? await Task.sleep(for: .seconds(1.5))
-            guard let self, self.isRunning, !self.isAlarmActive else { return }
+            guard let self, self.isRunning, self.isGreeting else { return }
             self.appendHistory(ChatTurn(role: .model, text: Self.greetingLine))
-            self.speakIfNotAlarming(Self.greetingLine)
+            self.speechOutput.speak(Self.greetingLine)
         }
+    }
+
+    private func finishGreeting() {
+        if isAlarmActive {
+            pauseForAlarm()
+            let isPendingMicrosleep = pendingRecoveryState == .microsleep
+            if drowsinessMonitor.state == .microsleep || !isPendingMicrosleep {
+                pendingRecoveryState = drowsinessMonitor.state
+            }
+            return
+        }
+        if let state = pendingRecoveryState {
+            pendingRecoveryState = nil
+            Task { await handleDrowsinessRecovery(for: state) }
+            return
+        }
+        if isMuted {
+            status = .muted
+            return
+        }
+        speechInput.resume()
+        status = .listening
     }
     
     private func appendHistory(_ turn: ChatTurn) {

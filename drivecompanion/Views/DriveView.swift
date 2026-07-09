@@ -152,12 +152,12 @@ struct DriveView: View {
 
     private var aiBubbleText: String {
         if viewModel.status == .thinking { return "..." }
-        return viewModel.history.last(where: { $0.role == .model })?.text ?? "..."
+        return viewModel.history.last(where: { $0.role == .model && !$0.isInternal })?.text ?? "..."
     }
 
     private var userBubbleText: String {
         if viewModel.status == .listening { return "..." }
-        return viewModel.history.last(where: { $0.role == .user })?.text ?? "..."
+        return viewModel.history.last(where: { $0.role == .user && !$0.isInternal })?.text ?? "..."
     }
 
     @ViewBuilder

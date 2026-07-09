@@ -35,6 +35,7 @@ nonisolated enum ChatRole {
 nonisolated struct ChatTurn {
     let role: ChatRole
     let text: String
+    var isInternal: Bool = false
 }
 
 nonisolated struct GeminiService {

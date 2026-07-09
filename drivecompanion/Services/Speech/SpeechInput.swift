@@ -103,7 +103,7 @@ final class SpeechInput {
     private func resetSilenceTimer() {
         silenceTimer?.invalidate()
         silenceTimer = Timer.scheduledTimer(withTimeInterval: Self.silenceTimeout, repeats: false) { [weak self] _ in
-            guard let self else { return }
+            guard let self, !self.isPaused else { return }
             let transcript = self.latestTranscript.trimmingCharacters(in: .whitespacesAndNewlines)
             guard !transcript.isEmpty else { return }
             self.stopRecognitionRequest()
