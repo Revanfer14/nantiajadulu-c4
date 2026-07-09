@@ -43,6 +43,8 @@ final class DrowsinessDetector {
     private let alertThreshold: TimeInterval = 3.0
     private var previousState: DrowsinessState = .alert
     
+    private var isDrowsyLatched: Bool = false
+    
     init() {
         seedEarHistory()
     }
@@ -58,16 +60,25 @@ final class DrowsinessDetector {
         let headDropped = headDropDuration >= headDropThreshold
         let yawn = jawOpenDuration >= yawnThreshold
         
+        var effectivePerclos = perclos
+        if headDropped { effectivePerclos += 0.1 }
+        if yawn { effectivePerclos += 0.1 }
+        
         let state: DrowsinessState
-        if isMicrosleep { // lv 3
+        if isMicrosleep {
             state = .microsleep
-        } else if (headDropped && perclos > perclosFadingThreshold * 0.5) || (yawn && perclos > perclosFadingThreshold * 0.5) { // lv 1
+        } else if isDrowsyLatched {
+            state = alert ? .alert : .drowsy
+        } else if effectivePerclos > perclosFadingThreshold {
             state = .drowsy
-        } else if perclos > perclosFadingThreshold && !alert { // lv 2
-            state = .drowsy
-        } else { // lv 0
+            if headDropped || yawn {
+                seedEarHistory()
+            }
+        } else {
             state = .alert
         }
+        
+        isDrowsyLatched = (state == .drowsy || state == .microsleep)
         
         // recovery from drowsy and back to alert so that alarm is off
         if previousState == .drowsy && state == .alert && alert {
