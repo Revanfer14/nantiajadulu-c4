@@ -227,7 +227,9 @@ final class AIViewModel: ObservableObject {
     
     private func sendTurn(_ userText: String) async {
         guard isRunning, !isAlarmActive, status == .listening else { return }
-        
+
+        appendHistory(ChatTurn(role: .user, text: userText))
+
         if pendingRestStopPrompt {
             pendingRestStopPrompt = false
             if isAffirmative(userText) {
@@ -264,15 +266,19 @@ final class AIViewModel: ObservableObject {
         pendingSuggestionOrigin = nil
         speechInput.pause()
         status = .speaking
-        speakIfNotAlarming("Oke, meluncur ke \(candidate.name) ya. Jangan lupa balik ke app ini lagi.")
-        try? await Task.sleep(for: .seconds(3))
+        let text = "Oke, meluncur ke \(candidate.name) ya. Jangan lupa balik ke app ini lagi."
+        appendHistory(ChatTurn(role: .model, text: text))
+        speakIfNotAlarming(text)
+        try? await Task.sleep(for: .seconds(2))
         restStopViewModel.openInMaps(candidate)
     }
     
     private func declineRestStopPrompt() async {
         speechInput.pause()
         status = .speaking
-        speakIfNotAlarming("Oke, lanjut aja ya.")
+        let text = "Oke, lanjut aja ya."
+        appendHistory(ChatTurn(role: .model, text: text))
+        speakIfNotAlarming(text)
     }
 
     private func declineRestStopCard() async {
@@ -281,9 +287,11 @@ final class AIViewModel: ObservableObject {
         pendingSuggestionOrigin = nil
         speechInput.pause()
         status = .speaking
-        speakIfNotAlarming(origin == .microsleep
+        let text = origin == .microsleep
             ? "Oke, tapi tolong beneran hati-hati ya, tadi itu bahaya banget."
-            : "Oke deh.")
+            : "Oke deh."
+        appendHistory(ChatTurn(role: .model, text: text))
+        speakIfNotAlarming(text)
     }
     
     private func presentWithETA(_ candidate: RestStopCandidate) {
@@ -297,7 +305,6 @@ final class AIViewModel: ObservableObject {
     
     private func deliverCue(_ text: String) async {
         guard isRunning, !isAlarmActive else { return }
-        appendHistory(ChatTurn(role: .user, text: text))
         speechInput.pause()
         status = .thinking
         let reply = await respond()
@@ -322,6 +329,7 @@ final class AIViewModel: ObservableObject {
         let candidates = await restStopViewModel.findCandidates()
         guard let nearest = candidates.first else {
             status = .speaking
+            appendHistory(ChatTurn(role: .model, text: notFoundMessage))
             speakIfNotAlarming(notFoundMessage)
             return
         }
@@ -329,7 +337,9 @@ final class AIViewModel: ObservableObject {
         restStopViewModel.present(nearest)
         pendingSuggestionOrigin = origin
         status = .speaking
-        speakIfNotAlarming(foundMessage(nearest))
+        let message = foundMessage(nearest)
+        appendHistory(ChatTurn(role: .model, text: message))
+        speakIfNotAlarming(message)
         presentWithETA(nearest)
     }
     
@@ -354,7 +364,9 @@ final class AIViewModel: ObservableObject {
         pendingSuggestionOrigin = .proactive
         let distanceKm = nearest.distance / 1000
         status = .speaking
-        speakIfNotAlarming("Eh, ada \(nearest.name) sekitar \(String(format: "%.1f", distanceKm)) km lagi nih, mau mampir sebentar?")
+        let text = "Eh, ada \(nearest.name) sekitar \(String(format: "%.1f", distanceKm)) km lagi nih, mau mampir sebentar?"
+        appendHistory(ChatTurn(role: .model, text: text))
+        speakIfNotAlarming(text)
         presentWithETA(nearest)
     }
     
@@ -414,7 +426,9 @@ final class AIViewModel: ObservableObject {
     private func askAboutRestStop() async {
         speechInput.pause()
         status = .speaking
-        speakIfNotAlarming("Eh, sori gua motong obrolan tadi ya. Lu keliatan mulai ngantuk nih — mau gua cariin tempat istirahat terdekat?")
+        let text = "Eh, sori gua motong obrolan tadi ya. Lu keliatan mulai ngantuk nih — mau gua cariin tempat istirahat terdekat?"
+        appendHistory(ChatTurn(role: .model, text: text))
+        speakIfNotAlarming(text)
         pendingRestStopPrompt = true
     }
 

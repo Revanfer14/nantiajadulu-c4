@@ -46,9 +46,6 @@ struct ClosingView: View {
 
     var body: some View {
         ZStack {
-            Color(red: 232 / 255, green: 244 / 255, blue: 251 / 255)
-                .ignoresSafeArea()
-
             Image(.backgroundHome)
                 .resizable()
                 .scaleEffect(2)
