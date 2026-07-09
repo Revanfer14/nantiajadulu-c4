@@ -35,7 +35,7 @@ struct DriveView: View {
                 VStack(spacing: 0) {
                     Spacer()
 
-                    MascotView(mood: displayedMood, isSpeaking: viewModel.status == .speaking)
+                    MascotView(mood: displayedMood, status: viewModel.status)
 
                     Text(viewModel.status.rawValue)
                         .font(.caption)
@@ -217,24 +217,31 @@ struct DriveView: View {
 
 private struct MascotView: View {
     let mood: MascotMood
-    let isSpeaking: Bool
+    let status: CompanionStatus
 
     @State private var showTalkFrame = false
     @State private var isBreathing = false
 
-    private var frames: (idle: String, talk: String) {
-        switch mood {
-        case .normal:
-            ("happy1", "happy2")
-        case .drowsy:
-            ("careful1", "careful2")
-        case .microsleep:
-            ("marah1", "marah2")
-        }
-    }
+    private var isSpeaking: Bool { status == .speaking }
 
     private var frame: String {
-        (isSpeaking && showTalkFrame) ? frames.talk : frames.idle
+        switch mood {
+        case .normal:
+            switch status {
+            case .listening:
+                "listening"
+            case .thinking:
+                "thinking"
+            case .speaking:
+                showTalkFrame ? "happy2" : "happy1"
+            case .idle, .alerting, .muted:
+                "happy1"
+            }
+        case .drowsy:
+            (isSpeaking && showTalkFrame) ? "careful2" : "careful1"
+        case .microsleep:
+            (isSpeaking && showTalkFrame) ? "marah2" : "marah1"
+        }
     }
 
     var body: some View {
