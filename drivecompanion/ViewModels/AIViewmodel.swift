@@ -94,6 +94,7 @@ final class AIViewModel: ObservableObject {
     private let restStopViewModel: RestStopViewModel
     
     private var isOnline = true
+    
     @Published var history: [ChatTurn] = []
 
     private var restStopProactiveTask: Task<Void, Never>?
