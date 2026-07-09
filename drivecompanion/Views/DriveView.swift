@@ -216,8 +216,6 @@ private struct MascotView: View {
     @State private var showTalkFrame = false
     @State private var isBreathing = false
 
-    private let talkTimer = Timer.publish(every: 0.28, on: .main, in: .common).autoconnect()
-
     private var frames: (idle: String, talk: String) {
         switch mood {
         case .normal:
@@ -251,8 +249,15 @@ private struct MascotView: View {
                 isBreathing = true
             }
         }
-        .onReceive(talkTimer) { _ in
-            showTalkFrame = isSpeaking ? !showTalkFrame : false
+        .task(id: isSpeaking) {
+            guard isSpeaking else {
+                showTalkFrame = false
+                return
+            }
+            while !Task.isCancelled {
+                try? await Task.sleep(nanoseconds: 280_000_000)
+                showTalkFrame.toggle()
+            }
         }
     }
 }
