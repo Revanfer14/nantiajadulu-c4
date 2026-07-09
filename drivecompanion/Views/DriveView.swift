@@ -92,20 +92,11 @@ struct DriveView: View {
                 }
                 
                 HStack(spacing: 12) {
-                    Button {
+                    SlideToConfirm(title: "Geser untuk berhenti") {
                         viewModel.stop()
                         dismiss()
-                    } label: {
-                        Text("Berhenti Mengemudi")
-                            .font(.headline)
-                            .foregroundStyle(Color.white)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 14)
-                            .background(AppColor.appPrimary)
-                            .clipShape(Capsule())
-                            .glassEffect()
                     }
-                    
+
                     Button {
                         viewModel.toggleMute()
                     } label: {
