@@ -37,6 +37,12 @@ struct DriveView: View {
 
                     MascotView(mood: displayedMood, isSpeaking: viewModel.status == .speaking)
 
+                    Text(viewModel.status.rawValue)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .padding(.top, 8)
+                        .animation(.easeInOut(duration: 0.2), value: viewModel.status)
+
                     Spacer()
 
                     VStack(spacing: 10) {
