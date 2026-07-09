@@ -14,6 +14,7 @@ struct DriveSessionView: View {
     @StateObject private var restStopViewModel: RestStopViewModel
 
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.scenePhase) private var scenePhase
 
     @State private var isCalibrated = false
     @State private var drowsyCount = 0
@@ -61,6 +62,11 @@ struct DriveSessionView: View {
                     microsleepCount += 1
                 case .alert, .noFace:
                     break
+                }
+            }
+            .onChange(of: scenePhase) { _, phase in
+                if phase == .active {
+                    viewModel.handleForegroundReturn()
                 }
             }
         } else {

@@ -52,6 +52,11 @@ final class SpeechInput {
         startRecognitionRequest()
     }
 
+    func restart() {
+        isPaused = false
+        startRecognitionRequest()
+    }
+
     func stop() {
         isPaused = false
         silenceTimer?.invalidate()
