@@ -11,6 +11,7 @@ import MapKit
 
 final class RestStopViewModel: ObservableObject {
     @Published private(set) var suggestedStop: RestStopCandidate?
+    @Published private(set) var originCoordinate: CLLocationCoordinate2D?
     
     private let locationService = LocationService()
     private let finder = RestStopFinder()
@@ -22,6 +23,7 @@ final class RestStopViewModel: ObservableObject {
         locationService.onLocationUpdate = { [weak self] coordinate, course, _ in
             self?.currentCoordinate = coordinate
             self?.currentCourse = course
+            self?.originCoordinate = coordinate
         }
         locationService.start()
     }
@@ -33,6 +35,22 @@ final class RestStopViewModel: ObservableObject {
     func findCandidates() async -> [RestStopCandidate] {
         guard let coordinate = currentCoordinate else { return [] }
         return await finder.search(near: coordinate, course: currentCourse)
+    }
+    
+    func fetchRoute(for candidate: RestStopCandidate) async -> MKRoute? {
+        guard let coordinate = currentCoordinate else { return nil }
+
+        let request = MKDirections.Request()
+        request.source = MKMapItem(placemark: MKPlacemark(coordinate: coordinate))
+        request.destination = candidate.mapItem
+        request.transportType = .automobile
+
+        do {
+            let response = try await MKDirections(request: request).calculate()
+            return response.routes.first
+        } catch {
+            return nil
+        }
     }
     
     func fetchEstimatedTime(for candidate: RestStopCandidate) async -> RestStopCandidate {

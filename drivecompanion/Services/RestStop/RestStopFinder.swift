@@ -11,7 +11,7 @@ import MapKit
 nonisolated struct RestStopFinder {
     private let searchRadius: CLLocationDistance = 15000
     private let aheadConeDegrees: Double = 60
-    private let maxResults = 5
+    private let maxResults = 3
     
     private let textQueries: [String: String] = [
         "rest area": "Rest Area",
