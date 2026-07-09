@@ -50,6 +50,13 @@
 			);
 			target = 76ED183F2FF4D33F007C646C /* drivecompanion */;
 		};
+		76B3FF692FFF39C800072653 /* Exceptions for "drivercompanion Watch App" folder in "drivercompanion Watch App" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				"drivercompanion-Watch-App-Info.plist",
+			);
+			target = E8FD66222FFA805000416E38 /* drivercompanion Watch App */;
+		};
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -63,6 +70,9 @@
 		};
 		E8FD66242FFA805000416E38 /* drivercompanion Watch App */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				76B3FF692FFF39C800072653 /* Exceptions for "drivercompanion Watch App" folder in "drivercompanion Watch App" target */,
+			);
 			path = "drivercompanion Watch App";
 			sourceTree = "<group>";
 		};
@@ -446,8 +456,10 @@
 				DEVELOPMENT_TEAM = "";
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "drivercompanion-Watch-App-Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = drivercompanion;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
+				INFOPLIST_KEY_UIUserInterfaceStyle = Light;
 				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = com.nantiajadulu.drivecompanion;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -479,8 +491,10 @@
 				DEVELOPMENT_TEAM = "";
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "drivercompanion-Watch-App-Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = drivercompanion;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
+				INFOPLIST_KEY_UIUserInterfaceStyle = Light;
 				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = com.nantiajadulu.drivecompanion;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
