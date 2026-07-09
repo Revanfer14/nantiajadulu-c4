@@ -20,172 +20,158 @@ struct DriveView: View {
     @ObservedObject var restStopViewModel: RestStopViewModel
     @ObservedObject var camera: CameraViewModel
     @Environment(\.dismiss) private var dismiss
-
+    
     @State private var isRestStopListVisible = false
     @State private var isCameraCheckVisible = false
     @State private var displayedMood: MascotMood = .normal
     @State private var lingerTask: Task<Void, Never>?
-
+    
     var body: some View {
-        ZStack(alignment: .bottomTrailing) {
-            moodBackground
-                .ignoresSafeArea()
-
-            VStack(spacing: 0) {
-                HStack {
+        NavigationStack {
+            ZStack(alignment: .bottomTrailing) {
+                moodBackground
+                    .ignoresSafeArea()
+                
+                VStack(spacing: 0) {
                     Spacer()
-                    HStack(spacing: 10) {
-                        Button {
-                            isCameraCheckVisible = true
-                        } label: {
-                            Image(systemName: "camera.viewfinder")
-                                .font(.title3)
-                                .foregroundStyle(Color.primary)
-                                .frame(width: 44, height: 44)
-                                .background(Color(.systemBackground))
-                                .clipShape(Circle())
-                                .glassEffect()
+                    
+                    MascotView(mood: displayedMood, isSpeaking: viewModel.status == .speaking)
+                    
+                    Spacer()
+                    
+                    ScrollViewReader { proxy in
+                        ScrollView {
+                            VStack(spacing: 10) {
+                                ForEach(viewModel.history.indices, id: \.self) { index in
+                                    ChatBubble(turn: viewModel.history[index])
+                                        .id(index)
+                                }
+                            }
+                            .padding(.horizontal, 20)
+                            .padding(.vertical, 10)
                         }
-                        Button {
-                            isRestStopListVisible = true
-                        } label: {
-                            Image(systemName: "map")
-                                .font(.title3)
-                                .foregroundStyle(Color.primary)
-                                .frame(width: 44, height: 44)
-                                .background(Color(.systemBackground))
-                                .clipShape(Circle())
-                                .glassEffect()
-                        }
-                    }
-                    .padding(.horizontal)
-                    .padding(.top, 8)
-                }
-                .padding(.horizontal)
-                .padding(.top, 8)
-                
-                Spacer()
-                
-                MascotView(mood: displayedMood, isSpeaking: viewModel.status == .speaking)
-                
-                Spacer()
-
-                ScrollViewReader { proxy in
-                    ScrollView {
-                        VStack(spacing: 10) {
-                            ForEach(viewModel.history.indices, id: \.self) { index in
-                                ChatBubble(turn: viewModel.history[index])
-                                    .id(index)
+                        .frame(height: 200)
+                        .onChange(of: viewModel.history.count) {
+                            if viewModel.history.count > 0 {
+                                withAnimation {
+                                    proxy.scrollTo(viewModel.history.count - 1, anchor: .bottom)
+                                }
                             }
                         }
-                        .padding(.horizontal, 20)
-                        .padding(.vertical, 10)
-                    }
-                    .frame(height: 200)
-                    .onChange(of: viewModel.history.count) {
-                        if viewModel.history.count > 0 {
-                            withAnimation {
-                                proxy.scrollTo(viewModel.history.count - 1, anchor: .bottom)
-                            }
-                        }
-                    }
-                }
-                
-                HStack(spacing: 12) {
-                    Button {
-                        viewModel.stop()
-                        dismiss()
-                    } label: {
-                        Text("Berhenti Mengemudi")
-                            .font(.headline)
-                            .foregroundStyle(Color.white)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 14)
-                            .background(AppColor.appPrimary)
-                            .clipShape(Capsule())
-                            .glassEffect()
                     }
                     
+                    HStack(spacing: 12) {
+                        Button {
+                            viewModel.stop()
+                            dismiss()
+                        } label: {
+                            Text("Berhenti Mengemudi")
+                                .font(.headline)
+                                .foregroundStyle(Color.white)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 14)
+                                .background(AppColor.appPrimary)
+                                .clipShape(Capsule())
+                                .glassEffect()
+                        }
+                        
+                        Button {
+                            viewModel.toggleMute()
+                        } label: {
+                            Circle()
+                                .fill(Color(.systemGray5))
+                                .frame(width: 54, height: 54)
+                                .overlay(
+                                    Image(systemName: viewModel.isMuted ? "mic.slash.fill" : "mic.fill")
+                                        .foregroundStyle(viewModel.isMuted ? Color.red : Color(red: 0, green: 136/255.0, blue: 1))
+                                        .font(.title3)
+                                )
+                        }
+                    }
+                    .padding(.horizontal, 20)
+                    .padding(.top, 20)
+                    .padding(.bottom, 16)
+                }
+                
+                //        #if DEBUG
+                //            VStack {
+                //                Spacer()
+                //
+                //                debugCameraPreview
+                //
+                //                Spacer()
+                //            }
+                //        #endif
+            }
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
                     Button {
-                        viewModel.toggleMute()
+                        isCameraCheckVisible = true
                     } label: {
-                        Circle()
-                            .fill(Color(.systemGray5))
-                            .frame(width: 54, height: 54)
-                            .overlay(
-                                Image(systemName: viewModel.isMuted ? "mic.slash.fill" : "mic.fill")
-                                    .foregroundStyle(viewModel.isMuted ? Color.red : Color(red: 0, green: 136/255.0, blue: 1))
-                                    .font(.title3)
-                            )
+                        Image(systemName: "camera.viewfinder")
                     }
                 }
-                .padding(.horizontal, 20)
-                .padding(.top, 20)
-                .padding(.bottom, 16)
-            }
-            
-//        #if DEBUG
-//            VStack {
-//                Spacer()
-//                
-//                debugCameraPreview
-//                
-//                Spacer()
-//            }
-//        #endif
-        }
-        .sheet(isPresented: $isCameraCheckVisible) {
-            CameraCalibrationView(camera: camera, mode: .recheck) {
-                isCameraCheckVisible = false
-            }
-        }
-        .sheet(isPresented: $isRestStopListVisible) {
-            RestStopListView(restStopViewModel: restStopViewModel)
-        }
-        .overlay(alignment: .top) {
-            if let candidate = restStopViewModel.suggestedStop {
-                RestStopCard(
-                    candidate: candidate,
-                    onAccept: {
-                        if let confirmed = restStopViewModel.confirm() {
-                            restStopViewModel.openInMaps(confirmed)
-                        }
-                    },
-                    onDismiss: { restStopViewModel.dismiss() })
-                .padding(.top, 80)
-                .transition(.move(edge: .top).combined(with: .opacity))
-            }
-        }
-        .overlay(alignment: .topLeading) {
-            DrowsinessStatusPill(state: state)
-                .padding(.top, 25)
-                .padding(.leading, 16)
-        }
-        .animation(.spring(response: 0.4, dampingFraction: 0.85), value: restStopViewModel.suggestedStop?.id)
-        .animation(.easeInOut(duration: 0.35), value: displayedMood)
-        .onChange(of: state, initial: true) { _, newState in
-            lingerTask?.cancel()
-            lingerTask = nil
-            switch newState {
-            case .drowsy:
-                displayedMood = .drowsy
-            case .microsleep:
-                displayedMood = .microsleep
-            case .alert, .noFace:
-                guard displayedMood != .normal else { return }
-                let delay: TimeInterval = displayedMood == .microsleep ? 5 : 3
-                lingerTask = Task { @MainActor in
-                    try? await Task.sleep(for: .seconds(delay))
-                    guard !Task.isCancelled else { return }
-                    displayedMood = .normal
+                
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        isRestStopListVisible = true
+                    } label: {
+                        Image(systemName: "map")
+                    }
                 }
             }
-        }
-        .onDisappear {
-            lingerTask?.cancel()
+            .sheet(isPresented: $isCameraCheckVisible) {
+                CameraCalibrationView(camera: camera, mode: .recheck) {
+                    isCameraCheckVisible = false
+                }
+            }
+            .sheet(isPresented: $isRestStopListVisible) {
+                RestStopListView(restStopViewModel: restStopViewModel)
+            }
+            .overlay(alignment: .top) {
+                if let candidate = restStopViewModel.suggestedStop {
+                    RestStopCard(
+                        candidate: candidate,
+                        onAccept: {
+                            if let confirmed = restStopViewModel.confirm() {
+                                restStopViewModel.openInMaps(confirmed)
+                            }
+                        },
+                        onDismiss: { restStopViewModel.dismiss() })
+                    .transition(.move(edge: .top).combined(with: .opacity))
+                }
+            }
+            .overlay(alignment: .topLeading) {
+                DrowsinessStatusPill(state: state)
+                    .padding(.top, -45)
+                    .padding(.leading, 16)
+            }
+            .animation(.spring(response: 0.4, dampingFraction: 0.85), value: restStopViewModel.suggestedStop?.id)
+            .animation(.easeInOut(duration: 0.35), value: displayedMood)
+            .onChange(of: state, initial: true) { _, newState in
+                lingerTask?.cancel()
+                lingerTask = nil
+                switch newState {
+                case .drowsy:
+                    displayedMood = .drowsy
+                case .microsleep:
+                    displayedMood = .microsleep
+                case .alert, .noFace:
+                    guard displayedMood != .normal else { return }
+                    let delay: TimeInterval = displayedMood == .microsleep ? 5 : 3
+                    lingerTask = Task { @MainActor in
+                        try? await Task.sleep(for: .seconds(delay))
+                        guard !Task.isCancelled else { return }
+                        displayedMood = .normal
+                    }
+                }
+            }
+            .onDisappear {
+                lingerTask?.cancel()
+            }
         }
     }
-
+    
     @ViewBuilder
     private var moodBackground: some View {
         switch displayedMood {
@@ -207,7 +193,7 @@ struct DriveView: View {
             )
         }
     }
-
+    
 #if DEBUG
     private var debugCameraPreview: some View {
         CameraPreview(session: camera.session)
@@ -238,12 +224,12 @@ struct DriveView: View {
 private struct MascotView: View {
     let mood: MascotMood
     let isSpeaking: Bool
-
+    
     @State private var showTalkFrame = false
     @State private var isBreathing = false
-
+    
     private let talkTimer = Timer.publish(every: 0.28, on: .main, in: .common).autoconnect()
-
+    
     private var frames: (idle: String, talk: String) {
         switch mood {
         case .normal:
@@ -254,11 +240,11 @@ private struct MascotView: View {
             ("marah1", "marah2")
         }
     }
-
+    
     private var frame: String {
         (isSpeaking && showTalkFrame) ? frames.talk : frames.idle
     }
-
+    
     var body: some View {
         VStack(spacing: 0) {
             Image(frame)
@@ -266,7 +252,7 @@ private struct MascotView: View {
                 .scaledToFit()
                 .frame(height: 200)
                 .scaleEffect(isBreathing ? 1.03 : 1.0)
-
+            
             Ellipse()
                 .fill(Color(.systemGray5).opacity(0.7))
                 .frame(width: 160, height: 40)
