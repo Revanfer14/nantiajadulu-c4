@@ -79,11 +79,8 @@ struct RestStopRow: View {
             }
             
             Spacer()
-            
-            Image(systemName: "chevron.right")
-                .font(AppFont.body)
-                .foregroundStyle(AppColor.textSecondary)
         }
+        .padding(.horizontal, 12)
     }
 }
 

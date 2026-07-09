@@ -104,6 +104,7 @@ struct CameraCalibrationView: View {
                 .disabled(!isFaceDetected)
                 .opacity(!isFaceDetected ? 0.4 : 1)
                 .padding(.horizontal, 20)
+                .padding(.bottom, 16)
             }
         }
     }

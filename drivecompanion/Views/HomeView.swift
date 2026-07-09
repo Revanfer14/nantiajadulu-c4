@@ -39,6 +39,7 @@ struct HomeView: View {
                 PrimaryButton("Mulai Berkendara") {
                     isDrivingActive = true
                 }
+                .padding(.bottom, 16)
             }
             .padding(.top, 30)
             .padding(.horizontal, 20)
