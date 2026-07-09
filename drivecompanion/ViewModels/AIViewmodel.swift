@@ -458,6 +458,25 @@ final class AIViewModel: ObservableObject {
         status = .listening
     }
 
+    func handleForegroundReturn() {
+        guard isRunning, !isAlarmActive else { return }
+        do {
+            let session = AVAudioSession.sharedInstance()
+            try session.setCategory(.playAndRecord, options: [.duckOthers, .defaultToSpeaker])
+            try session.setActive(true)
+        } catch {
+            return
+        }
+        isGreeting = false
+        if isMuted {
+            status = .muted
+            return
+        }
+        speechOutput.stop()
+        speechInput.restart()
+        status = .listening
+    }
+
     func toggleMute() {
         guard isRunning else { return }
         isMuted.toggle()
