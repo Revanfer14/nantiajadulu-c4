@@ -29,7 +29,6 @@ struct SlideToConfirm: View {
                     .glassEffect()
 
                 Text(title)
-                    .font(.headline)
                     .foregroundStyle(Color.white)
                     .frame(maxWidth: .infinity)
                     .opacity(1 - progress)

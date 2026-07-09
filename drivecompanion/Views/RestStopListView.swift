@@ -76,7 +76,7 @@ struct RestStopListView: View {
                                 dismiss()
                             }
                             .padding(.horizontal, 20)
-                            .padding(.bottom, 12)
+                            .padding(.bottom, 16)
                         }
                     }
                 }
