@@ -19,7 +19,7 @@ struct DriveView: View {
     let state: DrowsinessState
     @ObservedObject var restStopViewModel: RestStopViewModel
     @ObservedObject var camera: CameraViewModel
-    @Environment(\.dismiss) private var dismiss
+    let onEnd: () -> Void
 
     @State private var isRestStopListVisible = false
     @State private var isCameraCheckVisible = false
@@ -50,8 +50,7 @@ struct DriveView: View {
 
                     HStack(spacing: 12) {
                         SlideToConfirm(title: "Geser untuk berhenti") {
-                            viewModel.stop()
-                            dismiss()
+                            onEnd()
                         }
 
                         Button {
@@ -268,7 +267,7 @@ private struct MascotView: View {
         ChatTurn(role: .model, text: "Lumayan lama tuh. Udah makan belum? Jangan sampai laper pas nyetir.")
     ]
     vm.status = .listening
-    return DriveView(viewModel: vm, state: .alert, restStopViewModel: restStop, camera: CameraViewModel(monitor: monitor))
+    return DriveView(viewModel: vm, state: .alert, restStopViewModel: restStop, camera: CameraViewModel(monitor: monitor), onEnd: {})
 }
 
 #Preview("Drowsy") {
@@ -280,7 +279,7 @@ private struct MascotView: View {
         ChatTurn(role: .user, text: "Ah nanggung, tinggal 30 menit lagi sampai rumah.")
     ]
     vm.status = .listening
-    return DriveView(viewModel: vm, state: .drowsy, restStopViewModel: restStop, camera: CameraViewModel(monitor: monitor))
+    return DriveView(viewModel: vm, state: .drowsy, restStopViewModel: restStop, camera: CameraViewModel(monitor: monitor), onEnd: {})
 }
 
 #Preview("Microsleep") {
@@ -292,5 +291,5 @@ private struct MascotView: View {
         ChatTurn(role: .user, text: "Iya, gua juga kaget. Untung masih aman.")
     ]
     vm.status = .listening
-    return DriveView(viewModel: vm, state: .microsleep, restStopViewModel: restStop, camera: CameraViewModel(monitor: monitor))
+    return DriveView(viewModel: vm, state: .microsleep, restStopViewModel: restStop, camera: CameraViewModel(monitor: monitor), onEnd: {})
 }
