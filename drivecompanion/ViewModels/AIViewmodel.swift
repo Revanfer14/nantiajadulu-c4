@@ -62,6 +62,8 @@ final class AIViewModel: ObservableObject {
         """
     
     private static let recoveryNote = "(Driver baru saja pulih dari kondisi mengantuk/microsleep dan sekarang sudah fokus kembali.)"
+
+    private static let greetingLine = "Halo bro, Budi disini, gue bakal nemenin lu selama perjalanan. Kalau ada yang mau lu tanyain atau obrolin, langsung aja ya bro."
     
     private static let restStopKeywords = ["istirahat", "spbu", "masjid", "rest area", "pom bensin"]
     
@@ -92,7 +94,8 @@ final class AIViewModel: ObservableObject {
     private let restStopViewModel: RestStopViewModel
     
     private var isOnline = true
-    var history: [ChatTurn] = []
+    
+    @Published var history: [ChatTurn] = []
 
     private var restStopProactiveTask: Task<Void, Never>?
     private var lastProactiveSuggestionKey: String?
@@ -182,7 +185,7 @@ final class AIViewModel: ObservableObject {
             pauseForAlarm()
             pendingRecoveryState = drowsinessMonitor.state
         } else {
-            status = .listening
+            speakGreeting()
         }
         
         restStopProactiveTask = Task { [weak self] in
@@ -508,6 +511,17 @@ final class AIViewModel: ObservableObject {
     private func speakIfNotAlarming(_ text: String) {
         guard !isAlarmActive else { return }
         speechOutput.speak(text)
+    }
+
+    private func speakGreeting() {
+        speechInput.pause()
+        status = .speaking
+        Task { @MainActor [weak self] in
+            try? await Task.sleep(for: .seconds(1.5))
+            guard let self, self.isRunning, !self.isAlarmActive else { return }
+            self.appendHistory(ChatTurn(role: .model, text: Self.greetingLine))
+            self.speakIfNotAlarming(Self.greetingLine)
+        }
     }
     
     private func appendHistory(_ turn: ChatTurn) {

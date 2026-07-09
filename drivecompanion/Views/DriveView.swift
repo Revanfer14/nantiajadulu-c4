@@ -20,61 +20,40 @@ struct DriveView: View {
     @ObservedObject var restStopViewModel: RestStopViewModel
     @ObservedObject var camera: CameraViewModel
     @Environment(\.dismiss) private var dismiss
-    
+
     @State private var isRestStopListVisible = false
     @State private var isCameraCheckVisible = false
     @State private var displayedMood: MascotMood = .normal
     @State private var lingerTask: Task<Void, Never>?
-    
+
     var body: some View {
         NavigationStack {
             ZStack(alignment: .bottomTrailing) {
                 moodBackground
                     .ignoresSafeArea()
-                
+
                 VStack(spacing: 0) {
                     Spacer()
-                    
+
                     MascotView(mood: displayedMood, isSpeaking: viewModel.status == .speaking)
-                    
+
                     Spacer()
-                    
-                    ScrollViewReader { proxy in
-                        ScrollView {
-                            VStack(spacing: 10) {
-                                ForEach(viewModel.history.indices, id: \.self) { index in
-                                    ChatBubble(turn: viewModel.history[index])
-                                        .id(index)
-                                }
-                            }
-                            .padding(.horizontal, 20)
-                            .padding(.vertical, 10)
-                        }
-                        .frame(height: 200)
-                        .onChange(of: viewModel.history.count) {
-                            if viewModel.history.count > 0 {
-                                withAnimation {
-                                    proxy.scrollTo(viewModel.history.count - 1, anchor: .bottom)
-                                }
-                            }
-                        }
+
+                    VStack(spacing: 10) {
+                        ChatBubble(turn: ChatTurn(role: .model, text: aiBubbleText))
+                        ChatBubble(turn: ChatTurn(role: .user, text: userBubbleText))
                     }
-                    
+                    .padding(.horizontal, 20)
+                    .padding(.vertical, 10)
+                    .animation(.easeInOut(duration: 0.2), value: aiBubbleText)
+                    .animation(.easeInOut(duration: 0.2), value: userBubbleText)
+
                     HStack(spacing: 12) {
-                        Button {
+                        SlideToConfirm(title: "Geser untuk berhenti") {
                             viewModel.stop()
                             dismiss()
-                        } label: {
-                            Text("Berhenti Mengemudi")
-                                .font(.headline)
-                                .foregroundStyle(Color.white)
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 14)
-                                .background(AppColor.appPrimary)
-                                .clipShape(Capsule())
-                                .glassEffect()
                         }
-                        
+
                         Button {
                             viewModel.toggleMute()
                         } label: {
@@ -92,7 +71,7 @@ struct DriveView: View {
                     .padding(.top, 20)
                     .padding(.bottom, 16)
                 }
-                
+
                 //        #if DEBUG
                 //            VStack {
                 //                Spacer()
@@ -111,7 +90,7 @@ struct DriveView: View {
                         Image(systemName: "camera.viewfinder")
                     }
                 }
-                
+
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
                         isRestStopListVisible = true
@@ -171,7 +150,17 @@ struct DriveView: View {
             }
         }
     }
-    
+
+    private var aiBubbleText: String {
+        if viewModel.status == .thinking { return "..." }
+        return viewModel.history.last(where: { $0.role == .model })?.text ?? "..."
+    }
+
+    private var userBubbleText: String {
+        if viewModel.status == .listening { return "..." }
+        return viewModel.history.last(where: { $0.role == .user })?.text ?? "..."
+    }
+
     @ViewBuilder
     private var moodBackground: some View {
         switch displayedMood {
@@ -193,7 +182,7 @@ struct DriveView: View {
             )
         }
     }
-    
+
 #if DEBUG
     private var debugCameraPreview: some View {
         CameraPreview(session: camera.session)
@@ -224,12 +213,12 @@ struct DriveView: View {
 private struct MascotView: View {
     let mood: MascotMood
     let isSpeaking: Bool
-    
+
     @State private var showTalkFrame = false
     @State private var isBreathing = false
-    
+
     private let talkTimer = Timer.publish(every: 0.28, on: .main, in: .common).autoconnect()
-    
+
     private var frames: (idle: String, talk: String) {
         switch mood {
         case .normal:
@@ -240,11 +229,11 @@ private struct MascotView: View {
             ("marah1", "marah2")
         }
     }
-    
+
     private var frame: String {
         (isSpeaking && showTalkFrame) ? frames.talk : frames.idle
     }
-    
+
     var body: some View {
         VStack(spacing: 0) {
             Image(frame)
@@ -252,7 +241,7 @@ private struct MascotView: View {
                 .scaledToFit()
                 .frame(height: 200)
                 .scaleEffect(isBreathing ? 1.03 : 1.0)
-            
+
             Ellipse()
                 .fill(Color(.systemGray5).opacity(0.7))
                 .frame(width: 160, height: 40)
