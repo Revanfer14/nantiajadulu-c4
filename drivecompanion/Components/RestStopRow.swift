@@ -10,6 +10,7 @@ import MapKit
 
 struct RestStopRow: View {
     let candidate: RestStopCandidate
+    var showsChevron: Bool = false
     
     private var distanceText: String {
         candidate.distance < 1000
@@ -79,6 +80,13 @@ struct RestStopRow: View {
             }
             
             Spacer()
+            
+            if showsChevron {
+                Image(systemName: "chevron.right")
+                    .font(AppFont.body)
+                    .foregroundStyle(AppColor.textSecondary)
+            }
+            
         }
         .padding(.horizontal, 12)
     }

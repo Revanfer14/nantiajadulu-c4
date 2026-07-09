@@ -56,10 +56,10 @@ struct RestStopCard: View {
     var body: some View {
         List {
             Button(action: onAccept) {
-                RestStopRow(candidate: candidate)
+                RestStopRow(candidate: candidate, showsChevron: true)
             }
             .buttonStyle(.plain)
-            .listRowInsets(EdgeInsets(top: 12, leading: 16, bottom: 12, trailing: 16))
+            .listRowInsets(EdgeInsets(top: 12, leading: 0, bottom: 12, trailing: 0))
             .listRowBackground(Color(
                 red: 232/255,
                 green: 244/255,
