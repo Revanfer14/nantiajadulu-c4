@@ -70,26 +70,14 @@ struct DriveView: View {
                 
                 Spacer()
 
-                ScrollViewReader { proxy in
-                    ScrollView {
-                        VStack(spacing: 10) {
-                            ForEach(viewModel.history.indices, id: \.self) { index in
-                                ChatBubble(turn: viewModel.history[index])
-                                    .id(index)
-                            }
-                        }
-                        .padding(.horizontal, 20)
-                        .padding(.vertical, 10)
-                    }
-                    .frame(height: 200)
-                    .onChange(of: viewModel.history.count) {
-                        if viewModel.history.count > 0 {
-                            withAnimation {
-                                proxy.scrollTo(viewModel.history.count - 1, anchor: .bottom)
-                            }
-                        }
-                    }
+                VStack(spacing: 10) {
+                    ChatBubble(turn: ChatTurn(role: .model, text: aiBubbleText))
+                    ChatBubble(turn: ChatTurn(role: .user, text: userBubbleText))
                 }
+                .padding(.horizontal, 20)
+                .padding(.vertical, 10)
+                .animation(.easeInOut(duration: 0.2), value: aiBubbleText)
+                .animation(.easeInOut(duration: 0.2), value: userBubbleText)
                 
                 HStack(spacing: 12) {
                     SlideToConfirm(title: "Geser untuk berhenti") {
@@ -175,6 +163,16 @@ struct DriveView: View {
         .onDisappear {
             lingerTask?.cancel()
         }
+    }
+
+    private var aiBubbleText: String {
+        if viewModel.status == .thinking { return "..." }
+        return viewModel.history.last(where: { $0.role == .model })?.text ?? "..."
+    }
+
+    private var userBubbleText: String {
+        if viewModel.status == .listening { return "..." }
+        return viewModel.history.last(where: { $0.role == .user })?.text ?? "..."
     }
 
     @ViewBuilder
