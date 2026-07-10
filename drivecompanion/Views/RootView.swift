@@ -14,17 +14,17 @@ struct RootView: View {
     @State private var showSplash: Bool = true
 
     var body: some View {
-        ZStack (alignment: .bottom) {
-            HomeView()
-
-            if !hasSeenOnboarding {
+        ZStack {
+            if hasSeenOnboarding {
+                HomeView()
+                    .transition(.opacity)
+            } else {
                 OnboardingView {
                     withAnimation(.easeInOut(duration: 0.4)) {
                         hasSeenOnboarding = true
                     }
                 }
                 .transition(.opacity)
-                .zIndex(1)
             }
 
             if showSplash {
