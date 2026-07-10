@@ -72,7 +72,7 @@ final class AIViewModel: ObservableObject {
         return Self.restStopKeywords.contains { lowercased.contains($0) }
     }
     
-    private static let affirmativeKeywords = ["ya", "oke", "boleh", "gas", "yuk", "sip", "ayo"]
+    private static let affirmativeKeywords = ["ya", "oke", "boleh", "gas", "yuk", "sip", "ayo", "iya", "mau", "yok"]
     
     private func isAffirmative(_ text: String) -> Bool {
         let lowercased = text.lowercased().trimmingCharacters(in: .whitespaces)

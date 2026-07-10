@@ -45,7 +45,7 @@ struct RestStopListView: View {
                             Button {
                                 selectCandidate(candidate)
                             } label: {
-                                RestStopRow(candidate: candidate)
+                                RestStopRow(candidate: candidate, isNearest: candidate.id == candidates.first?.id)
                             }
                             .buttonStyle(.plain)
                             .listRowBackground(
