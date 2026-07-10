@@ -11,6 +11,7 @@ import MapKit
 struct RestStopRow: View {
     let candidate: RestStopCandidate
     var showsChevron: Bool = false
+    var isNearest: Bool = false
     
     private var distanceText: String {
         candidate.distance < 1000
@@ -85,6 +86,17 @@ struct RestStopRow: View {
                 Image(systemName: "chevron.right")
                     .font(AppFont.body)
                     .foregroundStyle(AppColor.textSecondary)
+            }
+            
+            if isNearest {
+                Text("Terdekat")
+                    .font(.caption2)
+                    .fontWeight(.semibold)
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 6)
+                    .background(Color(red: 42/255, green: 91/255, blue: 156/255))
+                    .clipShape(Capsule())
             }
             
         }

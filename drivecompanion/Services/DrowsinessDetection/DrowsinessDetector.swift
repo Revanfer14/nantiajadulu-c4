@@ -36,7 +36,7 @@ final class DrowsinessDetector {
     // YAWN
     private var jawOpenSince: Date? = nil
     private let jawOpenThreshold: Double = 0.8
-    private let yawnThreshold: TimeInterval = 3.0
+    private let yawnThreshold: TimeInterval = 2.0
     
     // ALERTNESS
     private var eyeOpenSince: Date? = nil
