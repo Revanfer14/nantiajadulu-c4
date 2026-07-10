@@ -10,8 +10,6 @@ import SwiftUI
 struct RootView: View {
     @AppStorage("hasSeenOnboarding")
     private var hasSeenOnboarding: Bool = false
-    
-    @State private var isOnboardingVisible: Bool = true
 
     @State private var showSplash: Bool = true
 
@@ -19,17 +17,13 @@ struct RootView: View {
         ZStack (alignment: .bottom) {
             HomeView()
 
-            if !hasSeenOnboarding && isOnboardingVisible {
-                Color.black
-                    .opacity(0.25)
-                    .ignoresSafeArea()
-                    .transition(.opacity)
-
-                GettingStartedView(
-                    isVisible: $isOnboardingVisible,
-                    hasSeenOnboarding: $hasSeenOnboarding)
-                .ignoresSafeArea(edges: .bottom)
-                .transition(.move(edge: .bottom).combined(with: .opacity))
+            if !hasSeenOnboarding {
+                OnboardingView {
+                    withAnimation(.easeInOut(duration: 0.4)) {
+                        hasSeenOnboarding = true
+                    }
+                }
+                .transition(.opacity)
                 .zIndex(1)
             }
 
