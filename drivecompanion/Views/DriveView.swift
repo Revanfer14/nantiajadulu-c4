@@ -46,13 +46,21 @@ struct DriveView: View {
                     Spacer()
 
                     VStack(spacing: 10) {
-                        ChatBubble(turn: ChatTurn(role: .model, text: aiBubbleText))
-                        ChatBubble(turn: ChatTurn(role: .user, text: userBubbleText))
+                        ForEach(bubbleOrder, id: \.self) { role in
+                            ChatBubble(
+                                turn: ChatTurn(
+                                    role: role,
+                                    text: role == .user ? userBubbleText : aiBubbleText
+                                )
+                            )
+                            .id(role)
+                        }
                     }
                     .padding(.horizontal, 20)
                     .padding(.vertical, 10)
                     .animation(.easeInOut(duration: 0.2), value: aiBubbleText)
                     .animation(.easeInOut(duration: 0.2), value: userBubbleText)
+                    .animation(.easeInOut(duration: 0.25), value: userSpokeLast)
 
                     HStack(spacing: 12) {
                         SlideToConfirm(title: "Geser untuk berhenti") {
@@ -164,6 +172,21 @@ struct DriveView: View {
     private var userBubbleText: String {
         if viewModel.status == .listening { return "..." }
         return viewModel.history.last(where: { $0.role == .user && !$0.isInternal })?.text ?? "..."
+    }
+
+    private var userSpokeLast: Bool {
+        switch viewModel.status {
+        case .speaking:
+            return false
+        case .listening, .thinking:
+            return true
+        default:
+            return viewModel.history.last(where: { !$0.isInternal })?.role == .user
+        }
+    }
+
+    private var bubbleOrder: [ChatRole] {
+        userSpokeLast ? [.model, .user] : [.user, .model]
     }
 
     @ViewBuilder
