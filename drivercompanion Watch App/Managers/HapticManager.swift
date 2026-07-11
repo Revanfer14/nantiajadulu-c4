@@ -41,5 +41,3 @@ private extension HapticManager {
         }
     }
 }
-
-// TODO: Make a function to detect gesture to stop the microsleep haptics -> ignore the camera state? :/ atau buat yang drowsy aja? -> CREATE NEW FILE MotionManager
