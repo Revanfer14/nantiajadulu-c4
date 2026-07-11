@@ -16,11 +16,16 @@ struct DrowsinessSnapshot {
     let state: DrowsinessState
 }
 
+enum AlertnessConfig {
+    static let eyeOpenThreshold: Double = 0.7
+    static let requiredDuration: TimeInterval = 2.0
+}
+
 final class DrowsinessDetector {
     // PERCLOS (from EAR) - continuous 30 seconds EAR history buffer to detect drowsiness
     private var earHistory: [(timestamp: Date, ear: Double)] = []
     private let perclosWindow: TimeInterval = 30
-    private let earDrowsyThreshold: Double = 0.7
+    private let earDrowsyThreshold: Double = AlertnessConfig.eyeOpenThreshold
     private let perclosFadingThreshold: Double = 0.15
     
     // CLOSDUR - for catching an actual microsleep as it happens
@@ -40,7 +45,7 @@ final class DrowsinessDetector {
     
     // ALERTNESS
     private var eyeOpenSince: Date? = nil
-    private let alertThreshold: TimeInterval = 3.0
+    private let alertThreshold: TimeInterval = AlertnessConfig.requiredDuration
     private var previousState: DrowsinessState = .alert
     
     private var isDrowsyLatched: Bool = false

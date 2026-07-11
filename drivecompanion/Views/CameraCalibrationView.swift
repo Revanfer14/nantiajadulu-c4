@@ -17,6 +17,9 @@ struct CameraCalibrationView: View {
     var mode: Mode = .initialSetup
     var onContinue: () -> Void
 
+    @AppStorage("hasCompletedAlarmDismissPractice") private var hasCompletedPractice = false
+    @State private var showingPractice = false
+    
     private var isFaceDetected: Bool {
         camera.hasFace
     }
@@ -100,9 +103,8 @@ struct CameraCalibrationView: View {
             
             if mode == .initialSetup {
                 VStack(alignment: .leading, spacing: 12) {
-                    tipRow(icon: "camera.viewfinder", text: "Letakkan HP di phoneholder agar kamera stabil selama nyetir")
-                    tipRow(icon: "applewatch", text: "Buka aplikasi Jaga di Apple Watch untuk peringatan getar. (opsional)")
-                    tipRow(icon: "bell.slash", text: "Buka mata 3 detik atau flick Apple Watch untuk mematikan alarm.")
+                    TipRow(icon: "camera.viewfinder", text: "Letakkan HP di phoneholder agar kamera stabil selama nyetir.")
+                    TipRow(icon: "applewatch", text: "Buka aplikasi Jaga di Apple Watch untuk peringatan getar (opsional).")
                 }
                 .padding(.horizontal, 20)
                 .padding(.bottom, 30)
@@ -113,27 +115,36 @@ struct CameraCalibrationView: View {
             }
             
             if mode == .initialSetup {
-                PrimaryButton("Lanjut Berkendara") {
-                    onContinue()
+                VStack(spacing: 12) {
+                    if hasCompletedPractice {
+                        PrimaryButton("Mulai Mengemudi") {
+                            onContinue()
+                        }
+                        
+                        Button("Latihan Lagi") {
+                            showingPractice = true
+                        }
+                        .font(AppFont.body)
+                        .foregroundStyle(AppColor.appPrimary)
+                    } else {
+                        PrimaryButton("Latihan Matiin Alarm") {
+                            showingPractice = true
+                        }
+                        .disabled(!isFaceDetected)
+                        .opacity(!isFaceDetected ? 0.4 : 1)
+                    }
                 }
-                .disabled(!isFaceDetected)
-                .opacity(!isFaceDetected ? 0.4 : 1)
                 .padding(.horizontal, 20)
             }
         }
-    }
-}
-
-private func tipRow(icon: String, text: String) -> some View {
-    HStack(alignment: .top, spacing: 10) {
-        Image(systemName: icon)
-            .font(.body)
-            .foregroundStyle(Color.black)
-            .frame(width: 20)
-
-        Text(text)
-            .font(.body)
-            .foregroundStyle(Color.black)
+        .sheet(isPresented: $showingPractice) {
+            AlarmDismissPracticeView(camera: camera) { completed in
+                if completed {
+                    hasCompletedPractice = true
+                }
+                showingPractice = false
+            }
+        }
     }
 }
 

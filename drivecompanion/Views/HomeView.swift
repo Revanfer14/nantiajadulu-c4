@@ -36,7 +36,7 @@ struct HomeView: View {
                 
                 Spacer()
                 
-                PrimaryButton("Mulai Berkendara") {
+                PrimaryButton("Mulai Perjalanan") {
                     isDrivingActive = true
                 }
                 .padding(.bottom, 16)

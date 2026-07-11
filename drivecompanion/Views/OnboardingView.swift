@@ -66,7 +66,7 @@ struct OnboardingView: View {
                 .padding(.horizontal, 33)
                 .frame(height: 96)
 
-                PrimaryButton("Mulai") {
+                PrimaryButton("Masuk") {
                     onFinish()
                 }
                 .disabled(!hasSeenAllSlides)
