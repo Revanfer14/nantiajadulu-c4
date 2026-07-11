@@ -45,6 +45,10 @@ final class AIViewModel: ObservableObject {
         
         Cara ngobrol: nanggepin dulu apa yang driver bilang sebelum ganti topik, ajukan pertanyaan lanjutan yang relevan, variasikan cara lu buka kalimat — jangan mulai dengan pola yang sama terus (misal selalu "Wah" atau selalu nanya).
         
+        Kemampuan tambahan — cari tempat istirahat terdekat: kalo driver keliatan capek, ngantuk, atau langsung minta dicariin tempat istirahat (rest area, SPBU, restoran, dan sejenisnya), kamu bisa bantu cariin yang terdekat dari posisi dia sekarang. Boleh proaktif nawarin kalo dari omongannya keliatan dia udah lelah, tapi jangan maksa kalo dia nolak.
+            
+        Batasan kemampuan — jujur, jangan ngarang: lu adalah teman ngobrol dan bisa bantu cariin tempat istirahat terdekat. Kalo driver minta melakukan aksi di luar itu — nyetirin mobil, kirim pesan atau telepon orang, muter lagu tertentu, ubah rute navigasi, dan sebagainya — bilang terus terang lu gak bisa bantu itu, jangan asal jawab atau bikin-bikin info.
+        
         Konten: topik bebas — cuaca, olahraga, film/series, musik, teknologi, makanan, traveling, hewan, fakta unik, motivasi ringan, hobi, dan sejenisnya. Jangan ulangi topik yang udah dibahas di percakapan ini.
         
         Panjang: 1–3 kalimat, ringkas dan enak diucapkan. Gak perlu bertele-tele.
@@ -64,6 +68,7 @@ final class AIViewModel: ObservableObject {
     private static let recoveryNote = "(Driver baru saja pulih dari kondisi mengantuk/microsleep dan sekarang sudah fokus kembali.)"
 
     private static let greetingLine = "Halo bro, Budi disini, gue bakal nemenin lu selama perjalanan. Kalau ada yang mau lu tanyain atau obrolin, langsung aja ya bro."
+    private static let noFaceWarningLine = "Eh, muka lu kok gak kelihatan? Posisiin HP-nya biar kamera bisa liat wajah lu lagi."
     
     private static let restStopKeywords = ["istirahat", "spbu", "masjid", "rest area", "pom bensin"]
     
@@ -110,6 +115,8 @@ final class AIViewModel: ObservableObject {
     private var pendingRestStopPrompt = false
     private var pendingSuggestionOrigin: RestStopSuggestionOrigin?
     private var isGreeting = false
+    
+    private var noFaceWarningTask: Task<Void, Never>?
     
     private var isAlarmActive: Bool {
         drowsinessMonitor.state == .drowsy || drowsinessMonitor.state == .microsleep
@@ -207,6 +214,7 @@ final class AIViewModel: ObservableObject {
     func stop() {
         speechInput.stop()
         speechOutput.stop()
+        cancelNoFaceWarning()
         history = []
         activeModel = ""
         lastAnnouncedState = .alert
@@ -378,6 +386,14 @@ final class AIViewModel: ObservableObject {
         defer { lastAnnouncedState = newState }
         guard isRunning else { return }
         
+        if newState == .noFace {
+            if lastAnnouncedState != .noFace {
+                armNoFaceWarning()
+            }
+        } else {
+            cancelNoFaceWarning()
+        }
+        
         let alarmActive = newState == .drowsy || newState == .microsleep
         let wasAlarmActive = lastAnnouncedState == .drowsy || lastAnnouncedState == .microsleep
 
@@ -456,6 +472,28 @@ final class AIViewModel: ObservableObject {
         }
         speechInput.resume()
         status = .listening
+    }
+    
+    private func armNoFaceWarning() {
+        noFaceWarningTask?.cancel()
+        noFaceWarningTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(for: .seconds(3))
+            guard let self, !Task.isCancelled else { return }
+            guard self.isRunning, self.drowsinessMonitor.state == .noFace else { return }
+            self.speakNoFaceWarning()
+        }
+    }
+
+    private func cancelNoFaceWarning() {
+        noFaceWarningTask?.cancel()
+        noFaceWarningTask = nil
+    }
+
+    private func speakNoFaceWarning() {
+        appendHistory(ChatTurn(role: .model, text: Self.noFaceWarningLine))
+        speechInput.pause()
+        status = .speaking
+        speakIfNotAlarming(Self.noFaceWarningLine)
     }
 
     func handleForegroundReturn() {
