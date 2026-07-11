@@ -24,12 +24,28 @@ struct DrivingView: View {
             .frame(width: 200, height: 200)
             .padding()
         }
-        .onAppear {
-            motion.startMotionUpdates()
+        .onChange(of: connectivity.state) {
+            _, newState in
+            
+            switch newState {
+            case .drowsy:
+                motion.startMotionUpdates()
+                
+            default:
+                motion.stopMotionUpdates()
+            }
         }
-        
-        .onDisappear {
-            motion.stopMotionUpdates()
+        .onChange(of: motion.detectedGesture) {
+            _, gesture in
+            
+            switch gesture {
+            case .dismissDrowsy:
+                WatchConnectivityManager.shared.sendDismissDrowsy()
+                motion.clearGesture()
+                
+            default:
+                break
+            }
         }
     }
 }
