@@ -14,6 +14,7 @@ final class CameraViewModel: ObservableObject {
     private let drowsinessDetector = DrowsinessDetector()
     private let alarmService = AlarmService()
     private let drowsinessMonitor: DrowsinessMonitor
+    private var ignoreDrowsyUntil: Date?
 
     var session: ARSession { faceTrackingService.session }
 
@@ -31,6 +32,18 @@ final class CameraViewModel: ObservableObject {
 
     init(monitor: DrowsinessMonitor) {
         self.drowsinessMonitor = monitor
+        
+        WatchConnectivityManager.shared.onDismissDrowsy = { [weak self] in
+            guard let self else { return }
+            print("Dismiss drowsy from watch")
+            self.ignoreDrowsyUntil = Date().addingTimeInterval(5)
+            self.drowsinessState = .alert
+            self.alarmService.stop()
+            
+            WatchConnectivityManager.shared.sendDrowsinessState(.alert)
+            self.previousSentState = .alert
+        }
+        
         faceTrackingService.onFaceUpdate = { [weak self] eyeOpenness, jawOpen, pitch in
             self?.handleFaceUpdate(eyeOpenness: eyeOpenness, jawOpen: jawOpen, pitch: pitch)
         }
@@ -53,6 +66,16 @@ final class CameraViewModel: ObservableObject {
             self.closedDuration = snapshot.closedDuration
             self.isMicrosleep = snapshot.isMicrosleep
             self.drowsinessState = snapshot.state
+            
+//            var currentState = snapshot.state
+//            if let ignoreUntil = ignoreDrowsyUntil,
+//               Date() < ignoreUntil,
+//               currentState == .drowsy {
+//                currentState = .alert
+//            }
+//            self.drowsinessState = currentState
+//            self.updateAlarm(for: currentState)
+            
             self.updateAlarm(for: snapshot.state)
             self.drowsinessMonitor.update(state: snapshot.state, perclos: snapshot.perclos, closedDuration: snapshot.closedDuration)
   

@@ -34,6 +34,7 @@ private extension WatchConnectivityManager {
         switch event {
         case "dismissDrowsy":
             print("Dismiss received")
+            onDismissDrowsy?()
             // TODO: Change state
         default:
             break

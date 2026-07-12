@@ -10,6 +10,7 @@ import WatchConnectivity
 
 final class WatchConnectivityManager: NSObject {
     static let shared = WatchConnectivityManager()
+    var onDismissDrowsy: (() -> Void)?
     
     private override init() {
         super.init()

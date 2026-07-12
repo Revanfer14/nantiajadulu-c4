@@ -40,19 +40,7 @@ final class MotionManager: ObservableObject {
             if let gesture = detector.process(rotationX: rotationX) {
                 self.detectedGesture = gesture
             }
-        }
-//        motionManager.startDeviceMotionUpdates(to: .main) {
-//            motion, error in
-//            guard let motion else { return }
-//            
-//            if motion.rotationRate.x > 10 || motion.rotationRate.x < -10 {
-//                print("Rotation x: ", motion.rotationRate.x)
-//                print("Rotation y: ", motion.rotationRate.y)
-//                print("Rotation z: ", motion.rotationRate.z)
-//                print()
-//            }
-//        }
-        
+        }        
     }
     
     func stopMotionUpdates() {
