@@ -6,7 +6,6 @@
 //
 
 import SwiftUI
-import Combine
 
 private struct OnboardingSlide {
     let imageName: String
@@ -27,8 +26,6 @@ struct OnboardingView: View {
         OnboardingSlide(imageName: "onboarding4", title: "Rekomendasi Area Istirahat", subtitle: "Menyarankan area istirahat terdekat saat Anda perlu beristirahat.")
     ]
 
-    private let autoAdvanceTimer = Timer.publish(every: 4, on: .main, in: .common).autoconnect()
-
     var body: some View {
         ZStack {
             Color(red: 232 / 255, green: 244 / 255, blue: 251 / 255)
@@ -45,6 +42,13 @@ struct OnboardingView: View {
                             }
                             .frame(maxWidth: .infinity, maxHeight: .infinity)
                             .clipShape(RoundedRectangle(cornerRadius: 25, style: .continuous))
+                            .contentShape(Rectangle())
+                            .onTapGesture {
+                                guard currentPage < slides.count - 1 else { return }
+                                withAnimation {
+                                    currentPage += 1
+                                }
+                            }
                             .tag(index)
                     }
                 }
@@ -52,6 +56,17 @@ struct OnboardingView: View {
                 .padding(.horizontal, 34)
                 .padding(.vertical, 16)
                 .frame(maxHeight: .infinity)
+
+                HStack(spacing: 8) {
+                    ForEach(0..<slides.count, id: \.self) { index in
+                        Circle()
+                            .fill(index == currentPage ? AppColor.appPrimary : AppColor.textSecondary.opacity(0.3))
+                            .frame(width: 8, height: 8)
+                    }
+                }
+                .padding(.top, 4)
+                .padding(.bottom, 12)
+                .animation(.easeInOut(duration: 0.2), value: currentPage)
 
                 VStack(alignment: .leading, spacing: 8) {
                     Text(slides[currentPage].title)
@@ -66,17 +81,12 @@ struct OnboardingView: View {
                 .padding(.horizontal, 33)
                 .frame(height: 96)
 
-                PrimaryButton("Masuk") {
+                PrimaryButton("Mulai") {
                     onFinish()
                 }
                 .disabled(!hasSeenAllSlides)
                 .padding(.horizontal, 16)
                 .padding(.vertical, 16)
-            }
-        }
-        .onReceive(autoAdvanceTimer) { _ in
-            withAnimation {
-                currentPage = (currentPage + 1) % slides.count
             }
         }
         .onChange(of: currentPage) { _, newValue in
